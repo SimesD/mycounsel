@@ -75,7 +75,9 @@ export function renderUI(): string {
       <span class="serif text-white text-xl font-semibold tracking-wide">MyCounsel</span>
       <span class="text-xs px-2 py-0.5 rounded-full ml-1" style="background: rgba(201,168,76,0.2); color: var(--gold-light);">UK Edition</span>
     </div>
-    <span class="text-xs text-slate-400">Governed by English Law · England &amp; Wales Jurisdiction</span>
+    <button onclick="showHistory()" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors" style="background:rgba(255,255,255,0.08);color:#94a3b8" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+      &#128196; My Agreements
+    </button>
   </header>
 
   <main class="max-w-3xl mx-auto px-4 py-10">
@@ -98,14 +100,25 @@ export function renderUI(): string {
           <div id="parties-list" class="space-y-3"></div>
         </div>
 
-        <div class="border-t border-slate-100 pt-6">
-          <label class="block text-sm font-medium text-slate-700 mb-2">Describe the agreement &amp; key commercial terms</label>
-          <textarea
-            id="intent-input"
-            rows="4"
-            placeholder="e.g. Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term with auto-renewal."
-            class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
-          ></textarea>
+        <div class="border-t border-slate-100 pt-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Agreement name <span class="text-slate-400 font-normal">(optional — auto-generated if blank)</span></label>
+            <input
+              id="name-input"
+              type="text"
+              placeholder="e.g. Tofka Vodka Distribution Agreement 2026"
+              class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Describe the agreement &amp; key commercial terms</label>
+            <textarea
+              id="intent-input"
+              rows="4"
+              placeholder="e.g. Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term with auto-renewal."
+              class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
+            ></textarea>
+          </div>
         </div>
 
         <div class="flex items-center gap-3 pt-2">
@@ -158,7 +171,10 @@ export function renderUI(): string {
       <div class="bg-white rounded-2xl shadow-md p-8 border border-slate-100">
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Legal Standing Report</div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-semibold uppercase tracking-widest text-slate-400">Legal Standing Report</span>
+              <span id="result-ref" class="text-xs font-mono px-2 py-0.5 rounded" style="background:rgba(201,168,76,0.12);color:var(--gold)"></span>
+            </div>
             <h2 class="serif text-2xl font-bold" style="color: var(--navy)" id="result-title">Agreement</h2>
             <p class="text-xs text-slate-400 mt-1" id="result-parties"></p>
           </div>
@@ -309,6 +325,19 @@ export function renderUI(): string {
         <h2 class="serif text-2xl font-bold mb-2" style="color: var(--navy)">Agreement Approved</h2>
         <p class="text-sm text-slate-500 mb-6">In production this would be dispatched to all parties via Adobe Sign for electronic execution.</p>
         <button onclick="reset()" class="text-sm font-medium" style="color: var(--gold)">&#8592; Draft another agreement</button>
+      </div>
+    </section>
+
+    <!-- ── STEP: History ── -->
+    <section id="step-history" class="hidden fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="serif text-2xl font-bold" style="color:var(--navy)">My Agreements</h2>
+        <button onclick="show('step-input')" class="text-sm font-medium px-4 py-2 rounded-xl border-2 transition-colors" style="border-color:var(--navy);color:var(--navy)">
+          + New Agreement
+        </button>
+      </div>
+      <div id="history-list" class="space-y-3">
+        <p class="text-sm text-slate-400 text-center py-8">Loading…</p>
       </div>
     </section>
 
@@ -495,11 +524,58 @@ function setExample(i) {
 }
 
 function show(id) {
-  ['step-input','step-loading','step-result','step-reviewed','step-signed'].forEach(s => {
+  ['step-input','step-loading','step-result','step-reviewed','step-signed','step-history'].forEach(s => {
     document.getElementById(s).classList.add('hidden');
   });
   document.getElementById(id).classList.remove('hidden');
   document.getElementById(id).classList.add('fade-in');
+}
+
+async function showHistory() {
+  show('step-history');
+  const list = document.getElementById('history-list');
+  try {
+    const res = await fetch('/contracts?user_id=demo');
+    const data = await res.json();
+    if (!data.contracts?.length) {
+      list.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">No agreements yet. Draft your first one above.</p>';
+      return;
+    }
+    const STATUS_LABEL = {
+      INTAKE: 'Intake', RESEARCH: 'Researching', DRAFTING: 'Drafting',
+      RISK_ASSESSMENT: 'Risk Review', LAWYER_REVIEW: 'Ready for Review',
+      SENT_FOR_REVIEW: 'Sent for Review', SIGNING: 'Signed',
+    };
+    const STATUS_COLOR = {
+      INTAKE: '#94a3b8', RESEARCH: '#f59e0b', DRAFTING: '#f59e0b',
+      RISK_ASSESSMENT: '#f59e0b', LAWYER_REVIEW: '#16a34a',
+      SENT_FOR_REVIEW: '#c9a84c', SIGNING: '#16a34a',
+    };
+    list.innerHTML = data.contracts.map(c => \`
+      <button onclick="openContract('\${c.id}')" class="w-full text-left bg-white rounded-xl border border-slate-100 shadow-sm px-6 py-4 hover:border-yellow-300 transition-colors">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-slate-800 truncate">\${c.name || '(Untitled)'}</div>
+            <div class="text-xs text-slate-400 mt-0.5">\${c.ref || '—'} &middot; \${new Date(c.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}</div>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style="background:\${STATUS_COLOR[c.status] ?? '#94a3b8'}20;color:\${STATUS_COLOR[c.status] ?? '#94a3b8'}">
+            \${STATUS_LABEL[c.status] ?? c.status}
+          </span>
+        </div>
+      </button>
+    \`).join('');
+  } catch {
+    list.innerHTML = '<p class="text-sm text-red-400 text-center py-8">Failed to load agreements.</p>';
+  }
+}
+
+async function openContract(id) {
+  currentContractId = id;
+  show('step-loading');
+  startStepAnimation();
+  await loadResult(id);
+  stopStepAnimation();
+  show('step-result');
 }
 
 function showPanel(id) {
@@ -571,6 +647,7 @@ function stopStepAnimation() {
 
 async function startGeneration() {
   const intent = document.getElementById('intent-input').value.trim();
+  const name   = document.getElementById('name-input').value.trim();
   if (!intent) { setError('Please describe the agreement you need.'); return; }
   setError('');
 
@@ -592,7 +669,7 @@ async function startGeneration() {
     const res = await fetch('/contract/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ intent, user_id: 'demo', parties: validParties }),
+      body: JSON.stringify({ intent, name: name || undefined, user_id: 'demo', parties: validParties }),
     });
 
     const data = await res.json();
@@ -623,9 +700,9 @@ async function loadResult(id) {
   const report = state.risk_report;
   const draft  = state.draft_versions?.[state.draft_versions.length - 1];
 
-  // Title & parties
-  document.getElementById('result-title').textContent =
-    state.inputs.intent.slice(0, 60) + (state.inputs.intent.length > 60 ? '…' : '');
+  // Title, ref & parties
+  document.getElementById('result-ref').textContent = state.ref || '';
+  document.getElementById('result-title').textContent = state.name || state.inputs.intent.slice(0, 60);
   document.getElementById('result-parties').textContent =
     state.inputs.parties.map(p => \`\${p.name} (\${p.role})\`).join(' · ');
 
@@ -766,6 +843,7 @@ async function approve() {
 function reset() {
   currentContractId = null;
   document.getElementById('intent-input').value = '';
+  document.getElementById('name-input').value = '';
   document.getElementById('adjust-panel').classList.add('hidden');
   document.getElementById('review-panel').classList.add('hidden');
   document.getElementById('draft-panel').classList.add('hidden');

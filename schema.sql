@@ -2,6 +2,8 @@
 
 CREATE TABLE IF NOT EXISTS contracts (
   id TEXT PRIMARY KEY,
+  ref TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
   user_id TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'INTAKE',
   inputs_json TEXT NOT NULL DEFAULT '{}',

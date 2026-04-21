@@ -15,7 +15,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { renderUI } from './ui';
 import { generate, resume } from './pipeline';
-import { saveContract, loadContract } from './db';
+import { saveContract, loadContract, listUserContracts, nextContractSeq } from './db';
 import { formatRiskReport } from './report';
 import { ContractState } from './state';
 import { searchCompanies, formatAddress } from './integrations/companies-house';
@@ -34,6 +34,7 @@ const PartyInputSchema = z.object({
 
 const GenerateSchema = z.object({
   intent: z.string().min(10, 'Please describe the agreement in at least 10 characters'),
+  name: z.string().optional(),
   user_id: z.string().optional().default('anonymous'),
   parties: z.array(PartyInputSchema).optional().default([]),
 });
@@ -47,6 +48,14 @@ const DecisionSchema = z.object({
 
 function generateId(): string {
   return crypto.randomUUID();
+}
+
+/** Derives a short agreement name from the intent string. */
+function autoName(intent: string): string {
+  const trimmed = intent.trim();
+  // Use up to first sentence or 60 chars, whichever is shorter
+  const sentence = trimmed.split(/[.!?]/)[0].trim();
+  return sentence.length > 60 ? sentence.slice(0, 57) + '…' : sentence;
 }
 
 function jsonError(message: string, status = 400) {
@@ -102,11 +111,16 @@ app.post('/contract/generate', async (c) => {
     return jsonError(parsed.error.issues.map((i) => i.message).join('; '));
   }
 
-  const { intent, user_id, parties } = parsed.data;
+  const { intent, name, user_id, parties } = parsed.data;
   const id = generateId();
+  const seq = await nextContractSeq(c.env.DB);
+  const ref = `MC-${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`;
+  const agreementName = name?.trim() || autoName(intent);
 
   const initialState: ContractState = {
     id,
+    ref,
+    name: agreementName,
     user_id,
     status: 'INTAKE',
     inputs: {
@@ -130,6 +144,8 @@ app.post('/contract/generate', async (c) => {
 
     return c.json({
       id,
+      ref,
+      name: agreementName,
       status: (finalState as ContractState).status,
       message:
         'Contract drafted and risk assessment complete. Review the Legal Standing Report then submit your decision.',
@@ -389,13 +405,8 @@ app.post('/webhooks/adobe-sign', async (c) => {
  */
 app.get('/contracts', async (c) => {
   const userId = c.req.query('user_id') ?? 'anonymous';
-  const { results } = await c.env.DB.prepare(
-    'SELECT id, status, created_at FROM contracts WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
-  )
-    .bind(userId)
-    .all<{ id: string; status: string; created_at: string }>();
-
-  return c.json({ contracts: results });
+  const contracts = await listUserContracts(c.env.DB, userId);
+  return c.json({ contracts });
 });
 
 export default app;

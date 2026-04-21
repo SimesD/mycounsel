@@ -6,6 +6,8 @@ import { ContractState, ContractStatus } from './state';
 
 interface ContractRow {
   id: string;
+  ref: string;
+  name: string;
   user_id: string;
   status: ContractStatus;
   inputs_json: string;
@@ -27,14 +29,16 @@ export async function saveContract(
   await db
     .prepare(
       `INSERT OR REPLACE INTO contracts (
-        id, user_id, status,
+        id, ref, name, user_id, status,
         inputs_json, legal_context_json, draft_versions_json,
         risk_report_json, lawyer_notes, review_request, review_sent_at,
         signature_request_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       state.id,
+      state.ref,
+      state.name,
       state.user_id,
       state.status,
       JSON.stringify(state.inputs),
@@ -62,6 +66,8 @@ export async function loadContract(
 
   return {
     id: row.id,
+    ref: row.ref,
+    name: row.name,
     user_id: row.user_id,
     status: row.status,
     inputs: JSON.parse(row.inputs_json),
@@ -78,13 +84,21 @@ export async function loadContract(
 export async function listUserContracts(
   db: D1Database,
   userId: string
-): Promise<Array<{ id: string; status: ContractStatus; created_at: string }>> {
+): Promise<Array<{ id: string; ref: string; name: string; status: ContractStatus; created_at: string }>> {
   const { results } = await db
     .prepare(
-      'SELECT id, status, created_at FROM contracts WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
+      'SELECT id, ref, name, status, created_at FROM contracts WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
     )
     .bind(userId)
-    .all<{ id: string; status: ContractStatus; created_at: string }>();
+    .all<{ id: string; ref: string; name: string; status: ContractStatus; created_at: string }>();
 
   return results;
+}
+
+/** Returns the next sequential number for ref generation. */
+export async function nextContractSeq(db: D1Database): Promise<number> {
+  const row = await db
+    .prepare('SELECT COUNT(*) as cnt FROM contracts')
+    .first<{ cnt: number }>();
+  return (row?.cnt ?? 0) + 1;
 }

@@ -11,9 +11,10 @@ export type ContractStatus =
 
 export interface Party {
   name: string;
-  co_number?: string;
   role: string;
-  address: string;
+  address?: string;
+  co_number?: string;
+  email?: string;
 }
 
 export interface DraftVersion {
@@ -37,6 +38,8 @@ export interface RiskReport {
 
 export interface ContractState {
   id: string;
+  ref: string;       // Human-readable record number e.g. MC-2026-0001
+  name: string;      // User-provided or auto-generated agreement name
   user_id: string;
   status: ContractStatus;
   inputs: {
