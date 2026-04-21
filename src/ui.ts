@@ -256,10 +256,10 @@ const EXAMPLES = [
 ];
 
 const PIPELINE_STEPS = [
-  { label: "Intake & Entity Agent", sub: "Parsing instruction, resolving company data via Companies House", model: "Gemini 3 Flash Preview" },
-  { label: "Legal Researcher",      sub: "Identifying UK statutes, case law, and CMA guidance",           model: "Gemini 3.1 Pro Preview + Search" },
-  { label: "Drafting Architect",    sub: "Composing the full agreement under English law",                 model: "Gemini 3.1 Pro Preview" },
-  { label: "Risk & Standing Agent", sub: "Adversarial peer review — finding vulnerabilities",              model: "Gemini 3.1 Pro Preview" },
+  { label: "Intake & Entity Agent", sub: "Parsing instruction, resolving company data via Companies House", model: "Gemini 2.5 Flash" },
+  { label: "Legal Researcher",      sub: "Identifying UK statutes, case law, and CMA guidance",           model: "Gemini 2.5 Flash + Search" },
+  { label: "Drafting Architect",    sub: "Composing the full agreement under English law",                 model: "Gemini 2.5 Flash" },
+  { label: "Risk & Standing Agent", sub: "Adversarial peer review — finding vulnerabilities",              model: "Gemini 2.5 Flash" },
 ];
 
 let currentContractId = null;
