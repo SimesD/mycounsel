@@ -4,7 +4,7 @@
  * Max 3 attempts.
  */
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5;
 
 function parseRetryDelayMs(errorMessage: string): number {
   // Error message contains e.g. "Please retry in 22.3s"
@@ -24,9 +24,11 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
       const msg = lastError.message;
 
       const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED');
+      const is503 = msg.includes('503') || msg.includes('UNAVAILABLE');
+      const isRetryable = is429 || is503;
       const isDaily = msg.includes('PerDay');
 
-      if (!is429 || attempt === MAX_ATTEMPTS) throw lastError;
+      if (!isRetryable || attempt === MAX_ATTEMPTS) throw lastError;
 
       // Don't retry daily limits — they won't recover within the request
       if (isDaily) {
@@ -35,8 +37,11 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
         );
       }
 
-      const delayMs = parseRetryDelayMs(msg);
-      console.warn(`[retry] 429 on attempt ${attempt}, waiting ${delayMs}ms before retry...`);
+      const delayMs = is503
+        ? attempt * 8000  // 503: 8s, 16s — model overload needs more breathing room
+        : parseRetryDelayMs(msg);
+
+      console.warn(`[retry] ${is503 ? '503' : '429'} on attempt ${attempt}, waiting ${delayMs}ms before retry...`);
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
