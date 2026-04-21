@@ -1,0 +1,24 @@
+name = "mycounsel"
+main = "src/index.ts"
+compatibility_date = "2024-10-22"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mycounsel-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "CONTRACTS_BUCKET"
+bucket_name = "mycounsel-contracts"
+
+[vars]
+ENVIRONMENT = "development"
+
+# Secrets (set via `wrangler secret put`):
+# GOOGLE_AI_API_KEY
+# ANTHROPIC_API_KEY
+# COMPANIES_HOUSE_KEY
+# ADOBE_SIGN_CLIENT_ID
+# ADOBE_SIGN_CLIENT_SECRET
+# ADOBE_SIGN_ACCESS_TOKEN
