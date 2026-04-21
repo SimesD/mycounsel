@@ -83,7 +83,7 @@ ${latestDraft.content}
 Identify three specific legal vulnerabilities in this draft and provide your enforceability score and recommendation. Return valid JSON only.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-1.5-pro-latest',
+    model: 'gemini-2.5-pro',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',

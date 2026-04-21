@@ -92,7 +92,7 @@ Specific research requirements:
 6. Identify cases on enforceability of exclusivity clauses under English law`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-1.5-pro-latest',
+    model: 'gemini-2.5-pro',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
