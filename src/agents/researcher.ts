@@ -1,11 +1,14 @@
 /**
- * Agent B — Legal Researcher (Gemini 1.5 Pro + Grounding)
+ * Agent B — Legal Researcher (Gemini 2.5 Flash + Grounding)
  *
  * Identifies relevant UK statutes, case law, and regulatory guidance.
  * Uses Google Search grounding to retrieve current, accurate legal references.
+ *
+ * Note: googleSearch tool and responseMimeType:'application/json' are mutually
+ * exclusive in the Gemini API — we use plain text output and extract JSON manually.
  */
 
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { ContractState } from '../state';
 
 interface ResearchResult {
@@ -14,32 +17,6 @@ interface ResearchResult {
   anchor_case_summary: string;
   regulatory_notes: string[];
 }
-
-const RESEARCH_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    statutes: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: 'Specific sections of UK Acts relevant to this agreement',
-    },
-    precedents: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: 'Relevant UK case law citations and brief holdings',
-    },
-    anchor_case_summary: {
-      type: Type.STRING,
-      description: 'Three-sentence summary of the leading case for this agreement type',
-    },
-    regulatory_notes: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: 'Additional regulatory guidance (CMA, FCA, HMRC, etc.) if applicable',
-    },
-  },
-  required: ['statutes', 'precedents', 'anchor_case_summary', 'regulatory_notes'],
-};
 
 const SYSTEM_INSTRUCTION = `You are a specialist UK legal researcher at a top-tier City of London law firm.
 Your role is to identify the precise statutory framework, case law, and regulatory guidance that governs the agreement being drafted.
@@ -59,7 +36,16 @@ For distribution/supply agreements specifically:
 - The CMA's Vertical Agreements and Vertical Restraints guidance (CMA123)
 - Price Maintenance provisions — note that minimum resale price maintenance (RPM) is a hardcore restriction under the VABEO 2022
 
-Return ONLY valid JSON. Use precise statutory references (e.g., "Companies Act 2006 s.172(1)" not just "Companies Act 2006").`;
+You MUST respond with a JSON object only — no prose, no markdown, no explanation.
+Use precise statutory references (e.g., "Companies Act 2006 s.172(1)" not just "Companies Act 2006").
+
+Response format:
+{
+  "statutes": ["<Act name and section>", ...],
+  "precedents": ["<Case name [year] court — one-line holding>", ...],
+  "anchor_case_summary": "<Three sentences on the leading case for this agreement type>",
+  "regulatory_notes": ["<CMA/FCA/HMRC guidance note>", ...]
+}`;
 
 export async function researchNode(
   state: ContractState,
@@ -89,30 +75,53 @@ Specific research requirements:
 3. If this is a distribution/supply agreement with margin or pricing terms, research the Vertical Agreements Block Exemption Order 2022 (SI 2022/516) and the 30% market share safe harbour
 4. Note any CMA guidance on vertical restraints applicable to this arrangement
 5. Consider whether any terms could constitute hardcore restrictions under the VABEO 2022 (resale price maintenance, territory restrictions, etc.)
-6. Identify cases on enforceability of exclusivity clauses under English law`;
+6. Identify cases on enforceability of exclusivity clauses under English law
+
+Respond with the JSON object only.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
-      responseMimeType: 'application/json',
-      responseSchema: RESEARCH_SCHEMA,
       temperature: 0.2,
       tools: [{ googleSearch: {} }],
     },
   });
 
   const text = response.text ?? '{}';
-  // Strip any markdown code fences that might wrap the JSON
+  // Strip markdown code fences if the model wraps its output
   const jsonText = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
-  const parsed = JSON.parse(jsonText) as ResearchResult;
+
+  let parsed: ResearchResult;
+  try {
+    parsed = JSON.parse(jsonText) as ResearchResult;
+  } catch {
+    // If the model returned prose instead of JSON, extract what we can
+    console.error('Research agent returned non-JSON, using fallback extraction');
+    parsed = {
+      statutes: extractList(text, 'statutes') ?? ['Contract Act 1999', 'Sale of Goods Act 1979'],
+      precedents: extractList(text, 'precedents') ?? [],
+      anchor_case_summary: '',
+      regulatory_notes: [],
+    };
+  }
 
   return {
     status: 'DRAFTING',
     legal_context: {
-      statutes: parsed.statutes,
-      precedents: parsed.precedents,
-      anchor_case_summary: parsed.anchor_case_summary,
+      statutes: parsed.statutes ?? [],
+      precedents: parsed.precedents ?? [],
+      anchor_case_summary: parsed.anchor_case_summary ?? '',
     },
   };
+}
+
+/** Best-effort extraction of a JSON array from prose output. */
+function extractList(text: string, _key: string): string[] | null {
+  const match = text.match(/\[([^\]]+)\]/);
+  if (!match) return null;
+  return match[1]
+    .split(',')
+    .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+    .filter(Boolean);
 }
