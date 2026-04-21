@@ -79,7 +79,7 @@ For distribution agreements: cite VABEO 2022 (SI 2022/516) Article 4 hardcore re
 For alcohol/spirits: cite Licensing Act 2003 requirements.`;
 
   const response = await withRetry(() => ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
