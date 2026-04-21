@@ -191,7 +191,8 @@ export function renderUI(): string {
 
       <!-- Decision -->
       <div class="bg-white rounded-2xl shadow-md p-8 border border-slate-100">
-        <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Your Decision</div>
+        <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Your Decision</div>
+        <div id="score-advice" class="text-xs text-slate-500 mb-4"></div>
         <div class="flex gap-3 flex-wrap">
           <button
             onclick="showAdjust()"
@@ -258,7 +259,7 @@ const EXAMPLES = [
 const PIPELINE_STEPS = [
   { label: "Intake & Entity Agent", sub: "Parsing instruction, resolving company data via Companies House", model: "Gemini 2.5 Flash" },
   { label: "Legal Researcher",      sub: "Identifying UK statutes, case law, and CMA guidance",           model: "Gemini 2.5 Flash" },
-  { label: "Drafting Architect",    sub: "Composing the full agreement under English law",                 model: "Gemini 2.5 Flash" },
+  { label: "Drafting Architect",    sub: "Composing the full agreement under English law",                 model: "Gemini 2.5 Pro" },
   { label: "Risk & Standing Agent", sub: "Adversarial peer review — finding vulnerabilities",              model: "Gemini 2.5 Flash" },
 ];
 
@@ -390,6 +391,15 @@ async function loadResult(id) {
       \`conic-gradient(\${score >= 75 ? '#c9a84c' : score >= 50 ? '#f59e0b' : '#ef4444'} \${pct}%, #e2e8f0 0%)\`;
     document.getElementById('score-number').textContent = score;
     document.getElementById('score-label').textContent  = scoreLabel(score);
+
+    const advice = document.getElementById('score-advice');
+    if (score >= 82) {
+      advice.innerHTML = \`<span style="color:#16a34a">&#10003; Score \${score}/100 — the draft is considered sound. You may approve or request further refinement.</span>\`;
+    } else if (score >= 60) {
+      advice.innerHTML = \`<span style="color:#b45309">&#9888; Score \${score}/100 — consider requesting a revision to address the vulnerabilities above before approving.</span>\`;
+    } else {
+      advice.innerHTML = \`<span style="color:#dc2626">&#10007; Score \${score}/100 — significant weaknesses remain. Request a revision before approving.</span>\`;
+    }
 
     // Warnings
     const container = document.getElementById('warnings-container');

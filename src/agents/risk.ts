@@ -1,9 +1,10 @@
 /**
- * Agent D — Risk & Standing Agent (Gemini 1.5 Pro)
+ * Agent D — Risk & Standing Agent (Gemini 2.5 Flash)
  *
- * Acts as an adversarial peer reviewer. Identifies weaknesses in the draft,
- * cites the specific UK law that makes those sections vulnerable, and assigns
- * an enforceability score.
+ * On first run: adversarial peer review, finds up to 3 vulnerabilities.
+ * On subsequent runs: compares against previous report, acknowledges
+ * improvements, only flags genuinely remaining or new issues.
+ * Score convergence: if score >= 82 the draft is considered sound.
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
@@ -28,29 +29,10 @@ const RISK_SCHEMA = {
     statutory_basis: { type: Type.STRING },
     anchor_case: { type: Type.STRING },
     recommendation: { type: Type.STRING },
+    resolved_issues: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
   required: ['enforceability_score', 'warnings', 'statutory_basis', 'recommendation'],
 };
-
-const SYSTEM_INSTRUCTION = `You are a senior partner at a Magic Circle law firm acting as an adversarial peer reviewer for a junior colleague's contract draft.
-
-Your role is NOT to praise the draft. Find weaknesses, ambiguities, and legally vulnerable provisions that opposing counsel could exploit or that a court might refuse to enforce.
-
-You will:
-1. Identify EXACTLY THREE (3) material legal weaknesses or vulnerabilities
-2. For each weakness, cite the specific UK statute, statutory instrument, or case law that creates the vulnerability
-3. Score overall enforceability 0–100 (100 = bomb-proof, 0 = unenforceable)
-4. State the primary governing statute
-5. Give a single actionable recommendation
-
-SCORING GUIDANCE:
-- 90–100: Exceptional draft, negligible risk
-- 75–89: Good draft, minor technical issues
-- 60–74: Adequate but notable gaps with meaningful litigation risk
-- 40–59: Significant weaknesses — recommend substantial revision before execution
-- Below 40: Do not execute — fundamental defects
-
-JURISDICTION: English law only.`;
 
 export async function riskNode(
   state: ContractState,
@@ -61,26 +43,75 @@ export async function riskNode(
   const latestDraft = state.draft_versions[state.draft_versions.length - 1];
   if (!latestDraft) throw new Error('Risk node: no draft available to review');
 
+  const isRevision = latestDraft.version > 1;
+  const previousReport = isRevision ? state.risk_report : undefined;
   const partiesSummary = state.inputs.parties
     .map((p) => `${p.name} (${p.role})`)
     .join(', ');
 
-  const prompt = `${SYSTEM_INSTRUCTION}
+  const previousReportSection = previousReport
+    ? `
+**PREVIOUS RISK REPORT (Version ${latestDraft.version - 1}) — Score: ${previousReport.enforceability_score}/100:**
+The following vulnerabilities were identified in the prior draft:
+${previousReport.warnings.map((w, i) => `${i + 1}. ${w.title}: ${w.detail} (${w.statutory_basis})`).join('\n')}
+Previous recommendation: ${previousReport.recommendation}
 
-Please review this contract draft and produce a Legal Standing Report.
+You MUST:
+- Acknowledge which of the above issues have been resolved in the new draft
+- Only flag issues that genuinely remain or are newly introduced
+- Reflect improvements in a higher enforceability score
+- Do NOT re-flag issues that have been adequately addressed
+`
+    : '';
 
+  const systemInstruction = isRevision
+    ? `You are a senior partner at a Magic Circle law firm conducting a comparative review of a revised contract draft.
+
+You previously identified weaknesses in Version ${latestDraft.version - 1}. Your job now is to:
+1. Assess whether those issues have been fixed in Version ${latestDraft.version}
+2. Identify any REMAINING material weaknesses (not ones already fixed)
+3. Note any NEW issues introduced by the revision
+4. Score the enforceability — the score should INCREASE if issues were resolved
+5. If fewer than 3 genuine issues remain, report only the real ones (minimum 1)
+
+SCORING GUIDANCE:
+- 90–100: Exceptional — recommend approval
+- 82–89: Good, minor points only — consider approving
+- 70–81: Adequate, notable gaps remain
+- 50–69: Significant weaknesses, further revision needed
+- Below 50: Do not execute
+
+JURISDICTION: English law only.`
+    : `You are a senior partner at a Magic Circle law firm acting as an adversarial peer reviewer.
+
+Find weaknesses, ambiguities, and legally vulnerable provisions that opposing counsel could exploit.
+
+1. Identify up to THREE material legal weaknesses, citing specific UK statute or case law
+2. Score overall enforceability 0–100
+3. State the primary governing statute
+4. Give a single actionable recommendation
+
+SCORING GUIDANCE:
+- 90–100: Exceptional draft
+- 75–89: Good, minor issues
+- 60–74: Notable gaps with litigation risk
+- 40–59: Significant weaknesses
+- Below 40: Do not execute
+
+JURISDICTION: English law only.`;
+
+  const prompt = `${systemInstruction}
+${previousReportSection}
 **Transaction:** ${state.inputs.intent}
 **Parties:** ${partiesSummary}
 **Governing Law:** England & Wales
 
-**Statutory Framework identified by research:**
+**Statutory Framework:**
 ${state.legal_context.statutes.map((s) => `• ${s}`).join('\n')}
 
 **Contract Draft (Version ${latestDraft.version}):**
 
-${latestDraft.content}
-
-Identify three specific legal vulnerabilities in this draft and provide your enforceability score and recommendation. Return valid JSON only.`;
+${latestDraft.content}`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
