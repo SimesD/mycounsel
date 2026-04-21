@@ -13,11 +13,13 @@ import { searchCompany, formatAddress } from '../integrations/companies-house';
 interface IntakeResult {
   intent: string;
   parties: Party[];
-  commercial_terms: Record<string, unknown>;
+  commercial_terms_json: string;
   jurisdiction_ok: boolean;
   jurisdiction_warning?: string;
 }
 
+// commercial_terms is returned as a JSON string — Gemini's schema mode
+// does not support free-form OBJECT types (no properties defined).
 const INTAKE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -34,11 +36,14 @@ const INTAKE_SCHEMA = {
         required: ['name', 'role', 'address'],
       },
     },
-    commercial_terms: { type: Type.OBJECT },
+    commercial_terms_json: {
+      type: Type.STRING,
+      description: 'JSON string of extracted commercial terms (prices, margins, durations, territory, exclusivity, etc.)',
+    },
     jurisdiction_ok: { type: Type.BOOLEAN },
     jurisdiction_warning: { type: Type.STRING },
   },
-  required: ['intent', 'parties', 'commercial_terms', 'jurisdiction_ok'],
+  required: ['intent', 'parties', 'commercial_terms_json', 'jurisdiction_ok'],
 };
 
 export async function intakeNode(
@@ -81,9 +86,16 @@ For the "Tofka Vodka" scenario or any distribution agreement, note the commercia
 
   const parsed = JSON.parse(response.text ?? '{}') as IntakeResult;
 
+  let commercial_terms: Record<string, unknown> = {};
+  try {
+    commercial_terms = JSON.parse(parsed.commercial_terms_json ?? '{}');
+  } catch {
+    commercial_terms = { raw: parsed.commercial_terms_json };
+  }
+
   // Enrich each party with Companies House data if they appear to be a UK company
   const enrichedParties: Party[] = await Promise.all(
-    parsed.parties.map(async (party) => {
+    (parsed.parties ?? []).map(async (party) => {
       if (!party.address || party.address.length < 10) {
         const chResult = await searchCompany(party.name, env.COMPANIES_HOUSE_KEY);
         if (chResult) {
@@ -108,7 +120,7 @@ For the "Tofka Vodka" scenario or any distribution agreement, note the commercia
     inputs: {
       intent: parsed.intent,
       parties: enrichedParties,
-      commercial_terms: parsed.commercial_terms,
+      commercial_terms,
     },
     errors: errors.length > 0 ? errors : undefined,
   };
