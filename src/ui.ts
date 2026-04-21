@@ -110,7 +110,7 @@ export function renderUI(): string {
           </button>
         </div>
 
-        <p class="text-xs text-slate-400 mt-3 text-center">Takes ~60 seconds &middot; Powered by Gemini 1.5 Pro &middot; No data stored beyond your session</p>
+        <p class="text-xs text-slate-400 mt-3 text-center">Takes ~60 seconds &middot; Checks legislation.gov.uk &amp; Companies House &middot; English law only</p>
       </div>
 
       <!-- Example prompts -->
@@ -318,10 +318,10 @@ const EXAMPLES = [
 ];
 
 const PIPELINE_STEPS = [
-  { label: "Intake & Entity Agent", sub: "Parsing instruction, resolving company data via Companies House", model: "Gemini 2.0 Flash" },
-  { label: "Legal Researcher",      sub: "Identifying UK statutes, case law, and CMA guidance",           model: "Gemini 2.0 Flash" },
-  { label: "Drafting Architect",    sub: "Composing the full agreement under English law",                 model: "Gemini 2.0 Flash" },
-  { label: "Risk & Standing Agent", sub: "Adversarial peer review — finding vulnerabilities",              model: "Gemini 2.0 Flash" },
+  { label: "Intake & Entity Resolution", sub: "Parsing your instruction · Verifying parties via Companies House", sources: "Companies House API · English law jurisdiction check" },
+  { label: "Legal Research",             sub: "Searching applicable UK statutes and case law",                   sources: "legislation.gov.uk · CMA guidance · UK case law" },
+  { label: "Contract Drafting",          sub: "Composing the full agreement under English law",                  sources: "VABEO 2022 · UCTA 1977 · UK drafting standards" },
+  { label: "Risk & Standing Assessment", sub: "Adversarial peer review — identifying vulnerabilities",           sources: "Competition Act 1998 · Licensing Act 2003 · CMA guidance" },
 ];
 
 let currentContractId = null;
@@ -377,7 +377,7 @@ function renderPipelineSteps(activeIdx) {
         <div class="flex-1 pt-1">
           <div class="text-sm font-semibold \${pending ? 'text-slate-300' : 'text-slate-800'}">\${step.label}</div>
           <div class="text-xs \${pending ? 'text-slate-300' : 'text-slate-400'} mt-0.5">\${step.sub}</div>
-          <div class="text-xs mt-0.5 font-mono \${done ? 'text-green-500' : active ? '' : 'text-slate-300'}" style="\${active ? 'color:var(--gold)' : ''}">\${step.model}</div>
+          <div class="text-xs mt-0.5 \${done ? 'text-green-600' : active ? '' : 'text-slate-300'}" style="\${active ? 'color:var(--gold)' : ''}">\${step.sources}</div>
         </div>
       </div>
     \`;
