@@ -13,6 +13,8 @@ interface ContractRow {
   draft_versions_json: string;
   risk_report_json: string | null;
   lawyer_notes: string | null;
+  review_request: string | null;
+  review_sent_at: string | null;
   signature_request_id: string | null;
   created_at: string;
   updated_at: string;
@@ -27,8 +29,9 @@ export async function saveContract(
       `INSERT OR REPLACE INTO contracts (
         id, user_id, status,
         inputs_json, legal_context_json, draft_versions_json,
-        risk_report_json, lawyer_notes, signature_request_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        risk_report_json, lawyer_notes, review_request, review_sent_at,
+        signature_request_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       state.id,
@@ -39,6 +42,8 @@ export async function saveContract(
       JSON.stringify(state.draft_versions),
       state.risk_report ? JSON.stringify(state.risk_report) : null,
       state.lawyer_notes ?? null,
+      state.review_request ?? null,
+      state.review_sent_at ?? null,
       state.signature_request_id ?? null
     )
     .run();
@@ -64,19 +69,10 @@ export async function loadContract(
     draft_versions: JSON.parse(row.draft_versions_json),
     risk_report: row.risk_report_json ? JSON.parse(row.risk_report_json) : undefined,
     lawyer_notes: row.lawyer_notes ?? undefined,
+    review_request: row.review_request ?? undefined,
+    review_sent_at: row.review_sent_at ?? undefined,
     signature_request_id: row.signature_request_id ?? undefined,
   };
-}
-
-export async function updateContractStatus(
-  db: D1Database,
-  id: string,
-  status: ContractStatus
-): Promise<void> {
-  await db
-    .prepare('UPDATE contracts SET status = ? WHERE id = ?')
-    .bind(status, id)
-    .run();
 }
 
 export async function listUserContracts(

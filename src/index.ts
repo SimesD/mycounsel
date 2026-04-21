@@ -6,6 +6,7 @@
  *   GET  /contract/:id               — get contract state
  *   GET  /contract/:id/report        — get Legal Standing Report as Markdown
  *   POST /contract/:id/decision      — submit user decision (ADJUST | APPROVE)
+ *   POST /contract/:id/legal-review  — send draft + message to in-house lawyers
  *   POST /webhooks/adobe-sign        — receive AGREEMENT_SIGNED event
  *   GET  /contracts                  — list contracts for user
  */
@@ -193,6 +194,126 @@ app.post('/contract/:id/decision', async (c) => {
     return c.json({ id, error: message }, 500);
   }
 });
+
+/**
+ * POST /contract/:id/legal-review
+ * Sends the draft + a user message to in-house lawyers for review.
+ * In production: triggers an email via Cloudflare Email Workers / Resend.
+ * For demo: saves the request and returns a formatted preview.
+ */
+app.post('/contract/:id/legal-review', async (c) => {
+  const id = c.req.param('id');
+  const state = await loadContract(c.env.DB, id);
+  if (!state) return jsonError('Contract not found', 404);
+
+  if (state.status !== 'LAWYER_REVIEW') {
+    return jsonError(
+      `Contract is in status '${state.status}' — legal review only available after risk assessment`
+    );
+  }
+
+  let body: unknown;
+  try { body = await c.req.json(); } catch { return jsonError('Invalid JSON body'); }
+
+  const parsed = z.object({
+    message: z.string().min(5, 'Please include a message for the lawyers'),
+    lawyer_email: z.string().email().optional(),
+  }).safeParse(body);
+
+  if (!parsed.success) {
+    return jsonError(parsed.error.issues.map((i) => i.message).join('; '));
+  }
+
+  const { message, lawyer_email } = parsed.data;
+  const latestDraft = state.draft_versions[state.draft_versions.length - 1];
+  const sentAt = new Date().toISOString();
+
+  // Persist the review request
+  await c.env.DB.prepare(
+    `UPDATE contracts SET status = 'SENT_FOR_REVIEW', review_request = ?, review_sent_at = ? WHERE id = ?`
+  ).bind(message, sentAt, id).run();
+
+  // Build the formatted email body the lawyer would receive
+  const emailPreview = formatLegalReviewEmail({
+    contractId: id,
+    intent: state.inputs.intent,
+    parties: state.inputs.parties.map((p) => `${p.name} (${p.role})`).join(', '),
+    score: state.risk_report?.enforceability_score,
+    warnings: state.risk_report?.warnings ?? [],
+    userMessage: message,
+    draftVersion: latestDraft?.version ?? 1,
+    draftContent: latestDraft?.content ?? '',
+    sentAt,
+  });
+
+  return c.json({
+    id,
+    status: 'SENT_FOR_REVIEW',
+    sent_to: lawyer_email ?? 'legal-team@mycounsel.ai (demo)',
+    sent_at: sentAt,
+    email_preview: emailPreview,
+    message: 'Draft sent for legal review. The lawyers will be in touch shortly.',
+  });
+});
+
+interface ReviewEmailParams {
+  contractId: string;
+  intent: string;
+  parties: string;
+  score?: number;
+  warnings: Array<{ title: string; detail: string; statutory_basis: string }>;
+  userMessage: string;
+  draftVersion: number;
+  draftContent: string;
+  sentAt: string;
+}
+
+function formatLegalReviewEmail(p: ReviewEmailParams): string {
+  const date = new Date(p.sentAt).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  return `TO: Legal Team <legal-team@mycounsel.ai>
+FROM: MyCounsel Platform <noreply@mycounsel.ai>
+SUBJECT: Legal Review Request — ${p.intent.slice(0, 60)}
+DATE: ${date}
+REF: MC-${p.contractId.slice(0, 8).toUpperCase()}
+
+────────────────────────────────────────────
+LEGAL REVIEW REQUEST
+────────────────────────────────────────────
+
+Dear Legal Team,
+
+A client has requested your review and opinion on the following draft agreement before proceeding to signature.
+
+TRANSACTION
+${p.intent}
+
+PARTIES
+${p.parties}
+
+MESSAGE FROM CLIENT
+"${p.userMessage}"
+
+AI RISK ASSESSMENT SUMMARY (for context only — not legal advice)
+Enforceability Score: ${p.score ?? 'N/A'}/100
+${p.warnings.map((w, i) => `${i + 1}. ${w.title} — ${w.statutory_basis}`).join('\n')}
+
+────────────────────────────────────────────
+CONTRACT DRAFT (Version ${p.draftVersion})
+────────────────────────────────────────────
+
+${p.draftContent}
+
+────────────────────────────────────────────
+
+Please review the above and respond directly to the client with your opinion, any required amendments, and clearance to proceed.
+
+This message was generated automatically by MyCounsel. The AI-generated draft and risk assessment are for reference only and do not constitute legal advice.
+
+MyCounsel Platform`;
+}
 
 /**
  * POST /webhooks/adobe-sign

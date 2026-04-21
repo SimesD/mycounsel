@@ -192,25 +192,34 @@ export function renderUI(): string {
       <!-- Decision -->
       <div class="bg-white rounded-2xl shadow-md p-8 border border-slate-100">
         <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Your Decision</div>
-        <div id="score-advice" class="text-xs text-slate-500 mb-4"></div>
+        <div id="score-advice" class="text-xs mb-4"></div>
+
         <div class="flex gap-3 flex-wrap">
           <button
-            onclick="showAdjust()"
+            onclick="showPanel('adjust-panel')"
             class="flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all"
             style="border-color: var(--navy); color: var(--navy);"
           >
             &#8635; Request Revision
           </button>
           <button
+            onclick="showPanel('review-panel')"
+            class="flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all"
+            style="border-color: var(--gold); color: var(--gold);"
+          >
+            &#9998; Send for Legal Review
+          </button>
+          <button
             onclick="approve()"
             class="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all"
             style="background: var(--navy);"
           >
-            &#10003; Approve &amp; Send for Signature
+            &#10003; Approve &amp; Sign
           </button>
         </div>
 
-        <div id="adjust-panel" class="hidden mt-5">
+        <!-- Revision panel -->
+        <div id="adjust-panel" class="hidden mt-5 pt-5 border-t border-slate-100">
           <label class="block text-sm font-medium text-slate-700 mb-2">Revision notes for the Drafting Agent</label>
           <textarea
             id="lawyer-notes"
@@ -226,11 +235,63 @@ export function renderUI(): string {
             Submit Revision Request &rarr;
           </button>
         </div>
+
+        <!-- Legal review panel -->
+        <div id="review-panel" class="hidden mt-5 pt-5 border-t border-slate-100">
+          <div class="text-sm font-medium text-slate-700 mb-1">Send to in-house legal team</div>
+          <p class="text-xs text-slate-400 mb-3">The full draft and AI risk report will be sent along with your message. Your lawyers can review, advise, and approve before signature.</p>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Lawyer email address</label>
+          <input
+            id="lawyer-email"
+            type="email"
+            placeholder="lawyer@yourfirm.com"
+            class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 mb-3"
+          />
+          <label class="block text-xs font-medium text-slate-600 mb-1">Your message &amp; questions</label>
+          <textarea
+            id="review-message"
+            rows="4"
+            placeholder="e.g. Please review this distribution agreement for Tofka Vodka. I'm particularly concerned about the exclusivity clause and whether the 30% margin KPI creates RPM risk. Can you advise before we send for signature?"
+            class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
+          ></textarea>
+          <button
+            onclick="submitLegalReview()"
+            class="mt-3 w-full py-3 rounded-xl text-sm font-semibold text-white"
+            style="background: var(--gold); color: var(--navy);"
+          >
+            Send for Legal Review &rarr;
+          </button>
+        </div>
       </div>
 
     </section>
 
-    <!-- ── STEP 4: Signed ── -->
+    <!-- ── STEP 4: Sent for Review ── -->
+    <section id="step-reviewed" class="hidden fade-in">
+      <div class="bg-white rounded-2xl shadow-md p-10 border border-slate-100">
+        <div class="text-center mb-8">
+          <div class="text-4xl mb-3">&#9998;</div>
+          <h2 class="serif text-2xl font-bold mb-2" style="color: var(--navy)">Sent for Legal Review</h2>
+          <p class="text-sm text-slate-500">The draft and your message have been sent to the legal team. You will hear back shortly.</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-5 mb-6">
+          <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Email Preview</div>
+          <pre id="email-preview" class="draft-content text-slate-600 text-xs overflow-auto max-h-80"></pre>
+        </div>
+
+        <div class="flex gap-3">
+          <button onclick="reset()" class="flex-1 py-3 rounded-xl text-sm font-semibold border-2" style="border-color: var(--navy); color: var(--navy);">
+            &#8592; Draft another agreement
+          </button>
+          <button onclick="approve()" class="flex-1 py-3 rounded-xl text-sm font-semibold text-white" style="background: var(--navy);">
+            &#10003; Approve &amp; Sign anyway
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── STEP 5: Signed ── -->
     <section id="step-signed" class="hidden fade-in">
       <div class="bg-white rounded-2xl shadow-md p-12 border border-slate-100 text-center">
         <div class="text-5xl mb-4">&#10003;</div>
@@ -271,11 +332,22 @@ function setExample(i) {
 }
 
 function show(id) {
-  ['step-input','step-loading','step-result','step-signed'].forEach(s => {
+  ['step-input','step-loading','step-result','step-reviewed','step-signed'].forEach(s => {
     document.getElementById(s).classList.add('hidden');
   });
   document.getElementById(id).classList.remove('hidden');
   document.getElementById(id).classList.add('fade-in');
+}
+
+function showPanel(id) {
+  ['adjust-panel','review-panel'].forEach(p => {
+    const el = document.getElementById(p);
+    if (p === id) {
+      el.classList.toggle('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  });
 }
 
 function setError(msg) {
@@ -447,8 +519,26 @@ function toggleDraft() {
 
 // ── Decision ──────────────────────────────────────────────────────────────────
 
-function showAdjust() {
-  document.getElementById('adjust-panel').classList.toggle('hidden');
+async function submitLegalReview() {
+  const message = document.getElementById('review-message').value.trim();
+  const email   = document.getElementById('lawyer-email').value.trim();
+  if (!message) { setError('Please add a message for the lawyers.'); return; }
+  setError('');
+
+  try {
+    const res = await fetch(\`/contract/\${currentContractId}/legal-review\`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, lawyer_email: email || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { setError(data.error || 'Failed to send.'); return; }
+
+    document.getElementById('email-preview').textContent = data.email_preview ?? '';
+    show('step-reviewed');
+  } catch (err) {
+    setError('Network error: ' + err.message);
+  }
 }
 
 async function submitAdjust() {
@@ -503,7 +593,11 @@ function reset() {
   currentContractId = null;
   document.getElementById('intent-input').value = '';
   document.getElementById('adjust-panel').classList.add('hidden');
+  document.getElementById('review-panel').classList.add('hidden');
   document.getElementById('draft-panel').classList.add('hidden');
+  document.getElementById('lawyer-notes').value = '';
+  document.getElementById('review-message').value = '';
+  document.getElementById('lawyer-email').value = '';
   setError('');
   show('step-input');
 }

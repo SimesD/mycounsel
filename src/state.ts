@@ -6,6 +6,7 @@ export type ContractStatus =
   | 'DRAFTING'
   | 'RISK_ASSESSMENT'
   | 'LAWYER_REVIEW'
+  | 'SENT_FOR_REVIEW'
   | 'SIGNING';
 
 export interface Party {
@@ -51,6 +52,8 @@ export interface ContractState {
   draft_versions: DraftVersion[];
   risk_report?: RiskReport;
   lawyer_notes?: string;
+  review_request?: string;   // user's message sent with the draft to in-house lawyers
+  review_sent_at?: string;   // ISO timestamp
   signature_request_id?: string;
   // Internal routing flag set by the user after reviewing the draft
   user_decision?: 'ADJUST' | 'APPROVE';

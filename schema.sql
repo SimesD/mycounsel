@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS contracts (
   draft_versions_json TEXT NOT NULL DEFAULT '[]',
   risk_report_json TEXT,
   lawyer_notes TEXT,
+  review_request TEXT,
+  review_sent_at TEXT,
   signature_request_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
