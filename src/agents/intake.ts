@@ -6,6 +6,7 @@
  * - Validates UK jurisdiction / vires
  */
 
+import { withRetry } from '../retry';
 import { GoogleGenAI, Type } from '@google/genai';
 import { ContractState, Party } from '../state';
 import { searchCompany, formatAddress } from '../integrations/companies-house';
@@ -75,14 +76,14 @@ Identify:
 
 For the "Tofka Vodka" scenario or any distribution agreement, note the commercial terms including margin percentages.`;
 
-  const response = await ai.models.generateContent({
+  const response = await withRetry(() => ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
       responseSchema: INTAKE_SCHEMA,
     },
-  });
+  }));
 
   const parsed = JSON.parse(response.text ?? '{}') as IntakeResult;
 

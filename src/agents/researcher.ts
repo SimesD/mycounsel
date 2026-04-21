@@ -7,6 +7,7 @@
  *      with the real legislation results injected into its prompt.
  */
 
+import { withRetry } from '../retry';
 import { GoogleGenAI, Type } from '@google/genai';
 import { ContractState } from '../state';
 import {
@@ -77,7 +78,7 @@ Return a JSON object with:
 For distribution agreements: cite VABEO 2022 (SI 2022/516) Article 4 hardcore restrictions and the 30% market share safe harbour.
 For alcohol/spirits: cite Licensing Act 2003 requirements.`;
 
-  const response = await ai.models.generateContent({
+  const response = await withRetry(() => ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
@@ -85,7 +86,7 @@ For alcohol/spirits: cite Licensing Act 2003 requirements.`;
       responseSchema: RESEARCH_SCHEMA,
       temperature: 0.2,
     },
-  });
+  }));
 
   const parsed = JSON.parse(response.text ?? '{}') as ResearchResult;
 

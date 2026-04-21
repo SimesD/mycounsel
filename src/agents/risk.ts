@@ -7,6 +7,7 @@
  * Score convergence: if score >= 82 the draft is considered sound.
  */
 
+import { withRetry } from '../retry';
 import { GoogleGenAI, Type } from '@google/genai';
 import { ContractState, RiskReport } from '../state';
 
@@ -113,7 +114,7 @@ ${state.legal_context.statutes.map((s) => `• ${s}`).join('\n')}
 
 ${latestDraft.content}`;
 
-  const response = await ai.models.generateContent({
+  const response = await withRetry(() => ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
@@ -121,7 +122,7 @@ ${latestDraft.content}`;
       responseSchema: RISK_SCHEMA,
       temperature: 0.2,
     },
-  });
+  }));
 
   const parsed = JSON.parse(response.text ?? '{}') as RiskReport;
 
