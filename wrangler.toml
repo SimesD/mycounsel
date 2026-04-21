@@ -15,10 +15,12 @@ bucket_name = "mycounsel-contracts"
 [vars]
 ENVIRONMENT = "development"
 
-# Secrets (set via `wrangler secret put`):
+# Required secrets (set via `wrangler secret put`):
 # GOOGLE_AI_API_KEY
-# ANTHROPIC_API_KEY
 # COMPANIES_HOUSE_KEY
+
+# Placeholder secrets (not used in demo):
+# ANTHROPIC_API_KEY
 # ADOBE_SIGN_CLIENT_ID
 # ADOBE_SIGN_CLIENT_SECRET
 # ADOBE_SIGN_ACCESS_TOKEN
