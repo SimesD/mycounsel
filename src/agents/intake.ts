@@ -71,7 +71,7 @@ Identify:
 For the "Tofka Vodka" scenario or any distribution agreement, note the commercial terms including margin percentages.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
