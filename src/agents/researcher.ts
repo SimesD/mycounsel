@@ -1,15 +1,19 @@
 /**
- * Agent B — Legal Researcher (Gemini 2.5 Flash)
+ * Agent B — Legal Researcher (Gemini 2.5 Flash + legislation.gov.uk)
  *
- * Identifies relevant UK statutes, case law, and regulatory guidance
- * using the model's built-in legal knowledge with structured JSON output.
- *
- * Note: googleSearch grounding is intentionally omitted — it is mutually
- * exclusive with JSON mode and produces unreliable output for structured data.
+ * Two-phase research:
+ *   1. Fetch real statute references from legislation.gov.uk (via govuk-mcp pattern)
+ *   2. Gemini identifies case law, anchor case, and regulatory context
+ *      with the real legislation results injected into its prompt.
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
 import { ContractState } from '../state';
+import {
+  searchLegislation,
+  buildLegislationQueries,
+  formatLegislationContext,
+} from '../integrations/legislation';
 
 interface ResearchResult {
   statutes: string[];
@@ -21,69 +25,57 @@ interface ResearchResult {
 const RESEARCH_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    statutes: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
-    precedents: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
+    statutes: { type: Type.ARRAY, items: { type: Type.STRING } },
+    precedents: { type: Type.ARRAY, items: { type: Type.STRING } },
     anchor_case_summary: { type: Type.STRING },
-    regulatory_notes: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
+    regulatory_notes: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
   required: ['statutes', 'precedents', 'anchor_case_summary', 'regulatory_notes'],
 };
-
-const SYSTEM_INSTRUCTION = `You are a specialist UK legal researcher at a top-tier City of London law firm.
-Identify the precise statutory framework, case law, and regulatory guidance governing the agreement.
-
-Key sources to consider:
-- Companies Act 2006
-- Sale of Goods Act 1979 / Consumer Rights Act 2015
-- Supply of Goods and Services Act 1982
-- Competition Act 1998
-- Vertical Agreements Block Exemption Order 2022 (SI 2022/516) — Article 4 hardcore restrictions, 30% market share threshold
-- Contract Law principles under English common law
-- Late Payment of Commercial Debts (Interest) Act 1998
-- Misrepresentation Act 1967
-- Unfair Contract Terms Act 1977
-
-For distribution/supply agreements:
-- CMA Vertical Agreements and Vertical Restraints guidance (CMA123)
-- Minimum resale price maintenance is a hardcore restriction under VABEO 2022 Article 4(a)
-
-Use precise statutory references (e.g. "Companies Act 2006 s.172(1)").`;
 
 export async function researchNode(
   state: ContractState,
   env: Env
 ): Promise<Partial<ContractState>> {
+  // ── Phase 1: fetch real statute references from legislation.gov.uk ──────────
+  const queries = buildLegislationQueries(state.inputs.intent);
+  const legislationResults = await Promise.all(
+    queries.map((q) => searchLegislation(q, 4))
+  );
+  const allItems = legislationResults.flat();
+  const legislationContext = formatLegislationContext(allItems);
+
+  console.log(
+    `[researcher] legislation.gov.uk returned ${allItems.length} items across ${queries.length} queries`
+  );
+
+  // ── Phase 2: Gemini enriches with case law and regulatory analysis ──────────
   const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
 
-  const commercialTermsSummary = JSON.stringify(state.inputs.commercial_terms, null, 2);
   const partiesSummary = state.inputs.parties
     .map((p) => `${p.name} (${p.role})`)
     .join(', ');
 
-  const prompt = `${SYSTEM_INSTRUCTION}
+  const prompt = `You are a specialist UK legal researcher at a top-tier City of London law firm.
 
-Research the UK legal framework for this agreement:
+The following Acts and Statutory Instruments have been retrieved directly from legislation.gov.uk and are confirmed to exist:
+
+${legislationContext || '(No legislation.gov.uk results — rely on your training knowledge)'}
+
+Using these confirmed statutes as your foundation, produce a legal research report for this agreement:
 
 Intent: ${state.inputs.intent}
 Parties: ${partiesSummary}
-Commercial Terms: ${commercialTermsSummary}
+Commercial Terms: ${JSON.stringify(state.inputs.commercial_terms, null, 2)}
 
-Requirements:
-1. Identify all relevant UK statutes with specific section numbers
-2. Find the leading anchor case for this agreement type under English law
-3. For distribution/supply agreements with pricing terms, cite VABEO 2022 and the 30% safe harbour
-4. Note applicable CMA guidance on vertical restraints
-5. Flag any potential hardcore restrictions (RPM, territory restrictions)
-6. Cite cases on enforceability of exclusivity clauses`;
+Return a JSON object with:
+- "statutes": array of specific sections from the confirmed Acts above (e.g. "Sale of Goods Act 1979 s.12 — implied title condition"). Include ONLY Acts confirmed above or that you are certain exist under English law.
+- "precedents": array of real UK case citations with one-line holdings (e.g. "Bettini v Gye (1876) 1 QBD 183 — distinguished conditions from warranties")
+- "anchor_case_summary": three sentences on the leading English law case for this type of agreement
+- "regulatory_notes": applicable CMA/FCA/HMRC guidance notes
+
+For distribution agreements: cite VABEO 2022 (SI 2022/516) Article 4 hardcore restrictions and the 30% market share safe harbour.
+For alcohol/spirits: cite Licensing Act 2003 requirements.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -97,10 +89,18 @@ Requirements:
 
   const parsed = JSON.parse(response.text ?? '{}') as ResearchResult;
 
+  // Merge: prepend legislation.gov.uk confirmed titles into statutes list
+  const confirmedTitles = allItems.map(
+    (r) => `${r.title}${r.year ? ` (${r.year})` : ''}`
+  );
+  const mergedStatutes = [
+    ...new Set([...confirmedTitles, ...(parsed.statutes ?? [])]),
+  ];
+
   return {
     status: 'DRAFTING',
     legal_context: {
-      statutes: parsed.statutes ?? [],
+      statutes: mergedStatutes,
       precedents: parsed.precedents ?? [],
       anchor_case_summary: parsed.anchor_case_summary ?? '',
     },

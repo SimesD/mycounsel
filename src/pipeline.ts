@@ -1,8 +1,5 @@
 /**
- * Contract pipeline — replaces LangGraph with a simple async pipeline.
- *
- * The workflow is linear enough that a state machine library adds
- * complexity and bundle size without meaningful benefit on Cloudflare Workers.
+ * Contract pipeline — simple async pipeline with named steps.
  *
  * Flow:
  *   generate()  → intake → research → draft → risk → persists to D1, returns
@@ -22,7 +19,11 @@ type PipelineStep = (
   env: Env
 ) => Promise<Partial<ContractState>>;
 
-/** Merge a partial update into the current state (immutably). */
+interface NamedStep {
+  name: string;
+  fn: PipelineStep;
+}
+
 function applyUpdate(
   state: ContractState,
   update: Partial<ContractState>
@@ -32,7 +33,6 @@ function applyUpdate(
     ...update,
     inputs: { ...state.inputs, ...(update.inputs ?? {}) },
     legal_context: { ...state.legal_context, ...(update.legal_context ?? {}) },
-    // draft_versions appends rather than replaces
     draft_versions: [
       ...state.draft_versions,
       ...(update.draft_versions ?? []),
@@ -41,43 +41,48 @@ function applyUpdate(
   };
 }
 
-/** Run a sequence of steps, threading state through each. */
 async function runSteps(
   state: ContractState,
-  steps: PipelineStep[],
+  steps: NamedStep[],
   env: Env
 ): Promise<ContractState> {
   let current = state;
-  for (const step of steps) {
-    const update = await step(current, env);
-    current = applyUpdate(current, update);
+  for (const { name, fn } of steps) {
+    console.log(`[pipeline] starting ${name}`);
+    try {
+      const update = await fn(current, env);
+      current = applyUpdate(current, update);
+      console.log(`[pipeline] completed ${name} → status: ${current.status}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[pipeline] FAILED at ${name}: ${message}`);
+      throw new Error(`${name} failed: ${message}`);
+    }
   }
   return current;
 }
 
-/**
- * Full generation pipeline: intake → research → draft → risk assessment.
- * Terminates at LAWYER_REVIEW (persisted to D1 by the caller).
- */
 export async function generate(
   state: ContractState,
   env: Env
 ): Promise<ContractState> {
-  return runSteps(state, [intakeNode, researchNode, draftingNode, riskNode], env);
+  return runSteps(state, [
+    { name: 'intakeNode',   fn: intakeNode },
+    { name: 'researchNode', fn: researchNode },
+    { name: 'draftingNode', fn: draftingNode },
+    { name: 'riskNode',     fn: riskNode },
+  ], env);
 }
 
-/**
- * Resume pipeline after lawyer review.
- * ADJUST → re-draft → risk assessment (loop, status stays LAWYER_REVIEW after)
- * APPROVE → trigger signing
- */
 export async function resume(
   state: ContractState,
   env: Env
 ): Promise<ContractState> {
   if (state.user_decision === 'APPROVE') {
-    return runSteps(state, [signingNode], env);
+    return runSteps(state, [{ name: 'signingNode', fn: signingNode }], env);
   }
-  // ADJUST: re-draft then re-assess risk
-  return runSteps(state, [draftingNode, riskNode], env);
+  return runSteps(state, [
+    { name: 'draftingNode', fn: draftingNode },
+    { name: 'riskNode',     fn: riskNode },
+  ], env);
 }
