@@ -94,9 +94,15 @@ For the "Tofka Vodka" scenario or any distribution agreement, note the commercia
     commercial_terms = { raw: parsed.commercial_terms_json };
   }
 
-  // Enrich each party with Companies House data if they appear to be a UK company
+  // If parties were pre-filled by the user in the intake form, use them
+  // and only enrich those that don't already have a CH company number.
+  // Otherwise fall back to AI-extracted parties.
+  const sourceParties: Party[] =
+    state.inputs.parties.length > 0 ? state.inputs.parties : (parsed.parties ?? []);
+
   const enrichedParties: Party[] = await Promise.all(
-    (parsed.parties ?? []).map(async (party) => {
+    sourceParties.map(async (party) => {
+      if (party.co_number) return party; // already resolved
       if (!party.address || party.address.length < 10) {
         const chResult = await searchCompany(party.name, env.COMPANIES_HOUSE_KEY);
         if (chResult) {

@@ -19,15 +19,16 @@ export interface CompaniesHouseSearchResponse {
   total_results: number;
 }
 
-export async function searchCompany(
+async function fetchCompanies(
   name: string,
-  apiKey: string
-): Promise<CompaniesHouseResult | null> {
+  apiKey: string,
+  limit: number
+): Promise<CompaniesHouseResult[]> {
   const encoded = encodeURIComponent(name);
   const credentials = btoa(`${apiKey}:`);
 
   const response = await fetch(
-    `https://api.company-information.service.gov.uk/search/companies?q=${encoded}&items_per_page=5`,
+    `https://api.company-information.service.gov.uk/search/companies?q=${encoded}&items_per_page=${limit}`,
     {
       headers: {
         Authorization: `Basic ${credentials}`,
@@ -37,18 +38,30 @@ export async function searchCompany(
   );
 
   if (!response.ok) {
-    console.error(
-      `Companies House API error: ${response.status} ${response.statusText}`
-    );
-    return null;
+    console.error(`Companies House API error: ${response.status} ${response.statusText}`);
+    return [];
   }
 
   const data = (await response.json()) as CompaniesHouseSearchResponse;
+  return data.items ?? [];
+}
 
-  if (!data.items || data.items.length === 0) return null;
+/** Returns the single best match — used internally by the intake agent. */
+export async function searchCompany(
+  name: string,
+  apiKey: string
+): Promise<CompaniesHouseResult | null> {
+  const items = await fetchCompanies(name, apiKey, 5);
+  return items[0] ?? null;
+}
 
-  // Return best match (first result)
-  return data.items[0];
+/** Returns up to `limit` matches — used by the /companies-house/search endpoint. */
+export async function searchCompanies(
+  name: string,
+  apiKey: string,
+  limit = 5
+): Promise<CompaniesHouseResult[]> {
+  return fetchCompanies(name, apiKey, limit);
 }
 
 export function formatAddress(result: CompaniesHouseResult): string {

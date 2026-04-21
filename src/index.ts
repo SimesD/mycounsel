@@ -18,14 +18,24 @@ import { generate, resume } from './pipeline';
 import { saveContract, loadContract } from './db';
 import { formatRiskReport } from './report';
 import { ContractState } from './state';
+import { searchCompanies, formatAddress } from './integrations/companies-house';
 
 const app = new Hono<{ Bindings: Env }>();
 
 // ─── Request Schemas ─────────────────────────────────────────────────────────
 
+const PartyInputSchema = z.object({
+  name: z.string().min(1),
+  role: z.string().min(1),
+  email: z.string().email().optional(),
+  co_number: z.string().optional(),
+  address: z.string().optional(),
+});
+
 const GenerateSchema = z.object({
   intent: z.string().min(10, 'Please describe the agreement in at least 10 characters'),
   user_id: z.string().optional().default('anonymous'),
+  parties: z.array(PartyInputSchema).optional().default([]),
 });
 
 const DecisionSchema = z.object({
@@ -57,6 +67,25 @@ app.get('/', (c) => {
 });
 
 /**
+ * GET /companies-house/search?q=...
+ * Proxies Companies House company search so the browser doesn't need the API key.
+ */
+app.get('/companies-house/search', async (c) => {
+  const q = c.req.query('q')?.trim() ?? '';
+  if (q.length < 2) return c.json({ items: [] });
+
+  const results = await searchCompanies(q, c.env.COMPANIES_HOUSE_KEY, 6);
+  return c.json({
+    items: results.map((r) => ({
+      company_number: r.company_number,
+      title: r.title,
+      address: formatAddress(r),
+      company_status: r.company_status,
+    })),
+  });
+});
+
+/**
  * POST /contract/generate
  * Kicks off the full intake → research → draft → risk pipeline.
  */
@@ -73,7 +102,7 @@ app.post('/contract/generate', async (c) => {
     return jsonError(parsed.error.issues.map((i) => i.message).join('; '));
   }
 
-  const { intent, user_id } = parsed.data;
+  const { intent, user_id, parties } = parsed.data;
   const id = generateId();
 
   const initialState: ContractState = {
@@ -82,7 +111,7 @@ app.post('/contract/generate', async (c) => {
     status: 'INTAKE',
     inputs: {
       intent,
-      parties: [],
+      parties: parties as ContractState['inputs']['parties'],
       commercial_terms: {},
     },
     legal_context: {

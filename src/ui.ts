@@ -84,20 +84,31 @@ export function renderUI(): string {
     <section id="step-input" class="fade-in">
       <div class="text-center mb-8">
         <h1 class="serif text-4xl font-bold mb-3" style="color: var(--navy)">Draft a UK Commercial Agreement</h1>
-        <p class="text-slate-500 text-sm max-w-lg mx-auto">Describe your transaction in plain English. Our agents will research applicable UK law, draft the agreement, and produce a Legal Standing Report.</p>
+        <p class="text-slate-500 text-sm max-w-lg mx-auto">Add the parties, describe your transaction, and our agents will research UK law, draft the agreement, and produce a Legal Standing Report.</p>
       </div>
 
-      <div class="bg-white rounded-2xl shadow-md p-8 border border-slate-100">
-        <label class="block text-sm font-medium text-slate-700 mb-2">Describe the agreement</label>
-        <textarea
-          id="intent-input"
-          rows="4"
-          placeholder="e.g. Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term."
-          class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
-          style="focus-ring-color: var(--gold)"
-        ></textarea>
+      <div class="bg-white rounded-2xl shadow-md p-8 border border-slate-100 space-y-6">
 
-        <div class="mt-4 flex items-center gap-3">
+        <!-- Parties -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-sm font-medium text-slate-700">Parties to the agreement</label>
+            <button onclick="addParty()" class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors" style="border-color:var(--navy);color:var(--navy)">+ Add party</button>
+          </div>
+          <div id="parties-list" class="space-y-3"></div>
+        </div>
+
+        <div class="border-t border-slate-100 pt-6">
+          <label class="block text-sm font-medium text-slate-700 mb-2">Describe the agreement &amp; key commercial terms</label>
+          <textarea
+            id="intent-input"
+            rows="4"
+            placeholder="e.g. Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term with auto-renewal."
+            class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
           <button
             id="btn-generate"
             onclick="startGeneration()"
@@ -110,20 +121,20 @@ export function renderUI(): string {
           </button>
         </div>
 
-        <p class="text-xs text-slate-400 mt-3 text-center">Takes ~60 seconds &middot; Checks legislation.gov.uk &amp; Companies House &middot; English law only</p>
+        <p class="text-xs text-slate-400 text-center">Takes ~60 seconds &middot; Checks legislation.gov.uk &amp; Companies House &middot; English law only</p>
       </div>
 
       <!-- Example prompts -->
       <div class="mt-6 grid grid-cols-1 gap-2">
         <p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Try an example</p>
         <button onclick="setExample(0)" class="text-left text-xs bg-white border border-slate-100 rounded-xl px-4 py-3 text-slate-600 hover:border-yellow-300 transition-colors shadow-sm">
-          🥃 Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor maintains a minimum 30% margin. 3-year term.
+          🥃 Exclusive UK distribution agreement for Tofka Vodka. Minimum 30% margin. 3-year term.
         </button>
         <button onclick="setExample(1)" class="text-left text-xs bg-white border border-slate-100 rounded-xl px-4 py-3 text-slate-600 hover:border-yellow-300 transition-colors shadow-sm">
-          💻 SaaS subscription agreement between TechCorp Ltd and Retail Solutions PLC for cloud-based inventory software. £24,000/year. 2-year initial term with auto-renewal.
+          💻 SaaS subscription for cloud-based inventory software. £24,000/year. 2-year initial term with auto-renewal.
         </button>
         <button onclick="setExample(2)" class="text-left text-xs bg-white border border-slate-100 rounded-xl px-4 py-3 text-slate-600 hover:border-yellow-300 transition-colors shadow-sm">
-          🏢 Commercial office lease for 2,500 sq ft at 1 Canada Square, London E14. 5-year term. £85 per sq ft per annum. Tenant break clause at year 3.
+          🏢 Commercial office lease for 2,500 sq ft at 1 Canada Square, London E14. 5-year term. £85/sqft/pa. Tenant break at year 3.
         </button>
       </div>
     </section>
@@ -312,9 +323,27 @@ export function renderUI(): string {
 
 <script>
 const EXAMPLES = [
-  "Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term.",
-  "SaaS subscription agreement between TechCorp Ltd and Retail Solutions PLC for cloud-based inventory software. £24,000/year. 2-year initial term with auto-renewal.",
-  "Commercial office lease for 2,500 sq ft at 1 Canada Square, London E14. 5-year term. £85 per sq ft per annum. Tenant break clause at year 3."
+  {
+    intent: "Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term with auto-renewal.",
+    parties: [
+      { type: 'company', name: 'Tofka Spirits Ltd', role: 'Supplier', email: '' },
+      { type: 'company', name: 'Premier Drinks Distribution Ltd', role: 'Distributor', email: '' },
+    ]
+  },
+  {
+    intent: "SaaS subscription for cloud-based inventory software. £24,000/year. 2-year initial term with auto-renewal.",
+    parties: [
+      { type: 'company', name: 'TechCorp Ltd', role: 'Service Provider', email: '' },
+      { type: 'company', name: 'Retail Solutions PLC', role: 'Customer', email: '' },
+    ]
+  },
+  {
+    intent: "Commercial office lease for 2,500 sq ft at 1 Canada Square, London E14. 5-year term. £85 per sq ft per annum. Tenant break clause at year 3.",
+    parties: [
+      { type: 'company', name: 'Canary Wharf Group PLC', role: 'Landlord', email: '' },
+      { type: 'company', name: '', role: 'Tenant', email: '' },
+    ]
+  },
 ];
 
 const PIPELINE_STEPS = [
@@ -327,8 +356,142 @@ const PIPELINE_STEPS = [
 let currentContractId = null;
 let stepTimer = null;
 
+// ── Party form state ──────────────────────────────────────────────────────────
+
+let parties = [
+  { type: 'company', name: '', role: '', email: '', co_number: '', address: '' },
+  { type: 'company', name: '', role: '', email: '', co_number: '', address: '' },
+];
+let chTimers = {};
+
+function addParty() {
+  parties.push({ type: 'company', name: '', role: '', email: '', co_number: '', address: '' });
+  renderParties();
+}
+
+function removeParty(idx) {
+  if (parties.length <= 1) return;
+  parties.splice(idx, 1);
+  renderParties();
+}
+
+function setPartyType(idx, type) {
+  parties[idx].type = type;
+  parties[idx].co_number = '';
+  parties[idx].address = '';
+  renderParties();
+}
+
+function renderParties() {
+  const list = document.getElementById('parties-list');
+  list.innerHTML = parties.map((p, idx) => \`
+    <div class="rounded-xl border border-slate-200 p-4 bg-slate-50 space-y-3" id="party-row-\${idx}">
+      <div class="flex items-center justify-between">
+        <div class="flex rounded-lg overflow-hidden border border-slate-200 text-xs font-medium">
+          <button onclick="setPartyType(\${idx},'company')"
+            class="px-3 py-1.5 transition-colors \${p.type==='company' ? 'text-white' : 'bg-white text-slate-500'}"
+            style="\${p.type==='company' ? 'background:var(--navy)' : ''}">Company</button>
+          <button onclick="setPartyType(\${idx},'individual')"
+            class="px-3 py-1.5 transition-colors \${p.type==='individual' ? 'text-white' : 'bg-white text-slate-500'}"
+            style="\${p.type==='individual' ? 'background:var(--navy)' : ''}">Individual</button>
+        </div>
+        \${parties.length > 1 ? \`<button onclick="removeParty(\${idx})" class="text-slate-300 hover:text-red-400 text-lg leading-none px-1">&times;</button>\` : ''}
+      </div>
+
+      <div class="flex gap-2">
+        <div class="flex-1 relative">
+          <input
+            type="text"
+            value="\${p.name}"
+            placeholder="\${p.type==='company' ? 'Company name' : 'Full name'}"
+            oninput="onPartyNameInput(\${idx}, this.value)"
+            class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-1"
+            style="focus-ring-color:var(--gold)"
+            autocomplete="off"
+          />
+          <div id="ch-dropdown-\${idx}" class="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 hidden overflow-hidden"></div>
+        </div>
+        <input
+          type="text"
+          value="\${p.role}"
+          placeholder="Role (e.g. Supplier)"
+          oninput="parties[\${idx}].role=this.value"
+          class="w-36 rounded-lg border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-1"
+        />
+      </div>
+
+      <input
+        type="email"
+        value="\${p.email}"
+        placeholder="Email address (optional)"
+        oninput="parties[\${idx}].email=this.value"
+        class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-1"
+      />
+
+      \${p.co_number ? \`
+        <div class="flex items-start gap-2 rounded-lg px-3 py-2 text-xs" style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3)">
+          <span style="color:var(--gold)" class="mt-0.5">&#10003;</span>
+          <div>
+            <div class="font-semibold text-slate-700">\${p.name}</div>
+            <div class="text-slate-500">Companies House: \${p.co_number} &middot; \${p.address}</div>
+          </div>
+        </div>
+      \` : ''}
+    </div>
+  \`).join('');
+}
+
+function onPartyNameInput(idx, value) {
+  parties[idx].name = value;
+  parties[idx].co_number = '';
+  parties[idx].address = '';
+
+  if (parties[idx].type !== 'company') return;
+  clearTimeout(chTimers[idx]);
+  const dropdown = document.getElementById(\`ch-dropdown-\${idx}\`);
+  if (value.length < 2) { dropdown.classList.add('hidden'); return; }
+
+  chTimers[idx] = setTimeout(async () => {
+    try {
+      const res = await fetch(\`/companies-house/search?q=\${encodeURIComponent(value)}\`);
+      const data = await res.json();
+      if (!data.items?.length) { dropdown.classList.add('hidden'); return; }
+
+      dropdown.innerHTML = data.items.map((item, i) => \`
+        <button
+          onclick="selectCHResult(\${idx}, \${JSON.stringify(JSON.stringify(item))})"
+          class="w-full text-left px-4 py-3 text-xs hover:bg-slate-50 transition-colors \${i>0?'border-t border-slate-100':''}"
+        >
+          <div class="font-semibold text-slate-800">\${item.title}</div>
+          <div class="text-slate-400 mt-0.5">\${item.company_number} &middot; \${item.company_status} &middot; \${item.address}</div>
+        </button>
+      \`).join('');
+      dropdown.classList.remove('hidden');
+    } catch {}
+  }, 380);
+}
+
+function selectCHResult(idx, jsonStr) {
+  const item = JSON.parse(jsonStr);
+  parties[idx].name = item.title;
+  parties[idx].co_number = item.company_number;
+  parties[idx].address = item.address;
+  document.getElementById(\`ch-dropdown-\${idx}\`).classList.add('hidden');
+  renderParties();
+}
+
+// Close CH dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('[id^="ch-dropdown-"]').forEach(d => {
+    if (!d.parentElement?.contains(e.target)) d.classList.add('hidden');
+  });
+});
+
 function setExample(i) {
-  document.getElementById('intent-input').value = EXAMPLES[i];
+  const ex = EXAMPLES[i];
+  document.getElementById('intent-input').value = ex.intent;
+  parties = ex.parties.map(p => ({ ...p, co_number: '', address: '' }));
+  renderParties();
 }
 
 function show(id) {
@@ -414,11 +577,22 @@ async function startGeneration() {
   show('step-loading');
   startStepAnimation();
 
+  // Collect only parties that have at least a name and role
+  const validParties = parties
+    .filter(p => p.name.trim() && p.role.trim())
+    .map(p => ({
+      name: p.name.trim(),
+      role: p.role.trim(),
+      ...(p.email ? { email: p.email.trim() } : {}),
+      ...(p.co_number ? { co_number: p.co_number } : {}),
+      ...(p.address ? { address: p.address } : {}),
+    }));
+
   try {
     const res = await fetch('/contract/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ intent, user_id: 'demo' }),
+      body: JSON.stringify({ intent, user_id: 'demo', parties: validParties }),
     });
 
     const data = await res.json();
@@ -598,9 +772,17 @@ function reset() {
   document.getElementById('lawyer-notes').value = '';
   document.getElementById('review-message').value = '';
   document.getElementById('lawyer-email').value = '';
+  parties = [
+    { type: 'company', name: '', role: '', email: '', co_number: '', address: '' },
+    { type: 'company', name: '', role: '', email: '', co_number: '', address: '' },
+  ];
+  renderParties();
   setError('');
   show('step-input');
 }
+
+// Initialise party form on load
+renderParties();
 </script>
 </body>
 </html>`;
