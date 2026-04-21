@@ -116,7 +116,7 @@ ${buildSpecialRequirements(state)}
 Produce the complete, execution-ready contract. Every clause must be fully drafted — no "[INSERT]" placeholders except for dates and specific figures to be agreed. Include all mandatory boilerplate clauses.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     contents: prompt,
     config: {
       temperature: 0.1,
