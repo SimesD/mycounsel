@@ -12,6 +12,7 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { renderUI } from './ui';
 import { generate, resume } from './pipeline';
 import { saveContract, loadContract } from './db';
 import { formatRiskReport } from './report';
@@ -45,6 +46,14 @@ function jsonError(message: string, status = 400) {
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+/**
+ * GET /
+ * Serves the demo UI.
+ */
+app.get('/', (c) => {
+  return c.html(renderUI());
+});
 
 /**
  * POST /contract/generate
