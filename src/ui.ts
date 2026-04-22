@@ -703,20 +703,38 @@ async function showHistory() {
       SENT_FOR_REVIEW: '#c9a84c', SIGNING: '#16a34a',
     };
     list.innerHTML = data.contracts.map(c => \`
-      <button onclick="openContract('\${c.id}')" class="w-full text-left bg-white rounded-xl border border-slate-100 shadow-sm px-6 py-4 hover:border-yellow-300 transition-colors">
-        <div class="flex items-center justify-between gap-4">
-          <div class="flex-1 min-w-0">
-            <div class="font-semibold text-slate-800 truncate">\${c.name || '(Untitled)'}</div>
-            <div class="text-xs text-slate-400 mt-0.5">\${c.ref || '—'} &middot; \${new Date(c.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}</div>
+      <div class="flex items-center gap-2">
+        <button onclick="openContract('\${c.id}')" class="flex-1 min-w-0 text-left bg-white rounded-xl border border-slate-100 shadow-sm px-6 py-4 hover:border-yellow-300 transition-colors">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-slate-800 truncate">\${c.name || '(Untitled)'}</div>
+              <div class="text-xs text-slate-400 mt-0.5">\${c.ref || '—'} &middot; \${new Date(c.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}</div>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style="background:\${STATUS_COLOR[c.status] ?? '#94a3b8'}20;color:\${STATUS_COLOR[c.status] ?? '#94a3b8'}">
+              \${STATUS_LABEL[c.status] ?? c.status}
+            </span>
           </div>
-          <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style="background:\${STATUS_COLOR[c.status] ?? '#94a3b8'}20;color:\${STATUS_COLOR[c.status] ?? '#94a3b8'}">
-            \${STATUS_LABEL[c.status] ?? c.status}
-          </span>
-        </div>
-      </button>
+        </button>
+        <button
+          onclick="deleteContract('\${c.id}')"
+          title="Delete"
+          class="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-300 hover:text-red-400 hover:border-red-200 transition-colors shadow-sm"
+        >&#128465;</button>
+      </div>
     \`).join('');
   } catch {
     list.innerHTML = '<p class="text-sm text-red-400 text-center py-8">Failed to load agreements.</p>';
+  }
+}
+
+async function deleteContract(id) {
+  if (!confirm('Delete this agreement? This cannot be undone.')) return;
+  try {
+    const res = await fetch(\`/contract/\${id}\`, { method: 'DELETE' });
+    if (!res.ok) { alert('Failed to delete.'); return; }
+    showHistory();
+  } catch {
+    alert('Network error — could not delete.');
   }
 }
 

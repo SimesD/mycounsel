@@ -128,3 +128,15 @@ export async function nextContractSeq(db: D1Database): Promise<number> {
     .first<{ cnt: number }>();
   return (row?.cnt ?? 0) + 1;
 }
+
+/** Permanently deletes a contract by id. Returns true if a row was deleted. */
+export async function deleteContract(
+  db: D1Database,
+  id: string,
+): Promise<boolean> {
+  const result = await db
+    .prepare("DELETE FROM contracts WHERE id = ?")
+    .bind(id)
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
+}

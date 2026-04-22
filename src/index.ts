@@ -21,6 +21,7 @@ import {
   loadContract,
   listUserContracts,
   nextContractSeq,
+  deleteContract,
 } from "./db";
 import { formatRiskReport } from "./report";
 import { ContractState } from "./state";
@@ -501,6 +502,17 @@ app.get("/contracts", async (c) => {
   const userId = c.req.query("user_id") ?? "anonymous";
   const contracts = await listUserContracts(c.env.DB, userId);
   return c.json({ contracts });
+});
+
+/**
+ * DELETE /contract/:id
+ * Permanently deletes a contract record.
+ */
+app.delete("/contract/:id", async (c) => {
+  const id = c.req.param("id");
+  const deleted = await deleteContract(c.env.DB, id);
+  if (!deleted) return jsonError("Contract not found", 404);
+  return c.json({ ok: true });
 });
 
 export default app;
