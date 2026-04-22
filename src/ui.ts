@@ -116,7 +116,7 @@ export function renderUI(): string {
 
         <!-- Mode toggle -->
         <div class="flex rounded-xl overflow-hidden border border-slate-200 w-fit mx-auto">
-          <button id="mode-btn-draft" onclick="setMode('DRAFT')" class="px-6 py-2.5 text-sm font-medium transition-colors text-white" style="background:var(--navy)">✍️ Draft Agreement</button>
+          <button id="mode-btn-draft" onclick="setMode('DRAFT')" class="px-6 py-2.5 text-sm font-medium transition-colors" style="background:var(--navy);color:#fff">✍️ Draft Agreement</button>
           <button id="mode-btn-review" onclick="setMode('REVIEW')" class="px-6 py-2.5 text-sm font-medium transition-colors text-slate-500 bg-white">🔍 Review Contract</button>
         </div>
 
@@ -514,10 +514,10 @@ function setMode(mode) {
 
   const draftBtn  = document.getElementById('mode-btn-draft');
   const reviewBtn = document.getElementById('mode-btn-review');
-  draftBtn.style.background  = isDraft  ? 'var(--navy)' : '';
-  draftBtn.style.color       = isDraft  ? '#fff'        : '';
-  reviewBtn.style.background = !isDraft ? 'var(--navy)' : '';
-  reviewBtn.style.color      = !isDraft ? '#fff'        : '';
+  draftBtn.style.background  = isDraft  ? 'var(--navy)' : '#fff';
+  draftBtn.style.color       = isDraft  ? '#fff'        : '#64748b';
+  reviewBtn.style.background = !isDraft ? 'var(--navy)' : '#fff';
+  reviewBtn.style.color      = !isDraft ? '#fff'        : '#64748b';
 
   document.getElementById('btn-generate-label').textContent = isDraft
     ? 'Generate Agreement \u2192'
