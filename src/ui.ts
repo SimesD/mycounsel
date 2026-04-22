@@ -8,6 +8,8 @@ export function renderUI(): string {
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/diff@5.2.0/dist/diff.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -164,11 +166,38 @@ export function renderUI(): string {
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Paste the contract to review</label>
-            <p class="text-xs text-slate-400 mb-2">Paste the full text of the contract. Our agents will classify it, research applicable UK law, and produce an improved redlined version with a Legal Standing Report.</p>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Contract document</label>
+
+            <!-- File upload drop zone -->
+            <div
+              id="file-drop-zone"
+              onclick="document.getElementById('file-input').click()"
+              ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+              ondragleave="this.style.borderColor=''"
+              ondrop="event.preventDefault();this.style.borderColor='';handleFileUpload(event.dataTransfer.files[0])"
+              class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer transition-colors mb-3 hover:border-yellow-300"
+            >
+              <div class="text-3xl mb-2">📄</div>
+              <div class="text-sm font-medium text-slate-600">Upload PDF or Word document</div>
+              <div class="text-xs text-slate-400 mt-1">Drag &amp; drop or click to browse &middot; .pdf, .doc, .docx</div>
+              <input id="file-input" type="file" accept=".pdf,.doc,.docx" class="hidden" onchange="handleFileUpload(this.files[0])" />
+            </div>
+
+            <!-- Extraction status -->
+            <div id="file-status" class="hidden text-xs rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2">
+              <span id="file-status-icon" class="mt-0.5 shrink-0"></span>
+              <span id="file-status-text"></span>
+            </div>
+
+            <div class="flex items-center gap-3 mb-3">
+              <div class="flex-1 border-t border-slate-200"></div>
+              <span class="text-xs text-slate-400">or paste text directly</span>
+              <div class="flex-1 border-t border-slate-200"></div>
+            </div>
+
             <textarea
               id="review-contract-text"
-              rows="14"
+              rows="12"
               placeholder="Paste contract text here…"
               class="w-full rounded-xl border border-slate-200 p-4 text-sm font-mono focus:outline-none focus:ring-2 resize-none"
             ></textarea>
@@ -966,6 +995,84 @@ function toggleDraft() {
   }
 }
 
+// ── File upload (PDF / DOCX) ─────────────────────────────────────────────────
+
+async function handleFileUpload(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const statusEl   = document.getElementById('file-status');
+  const statusIcon = document.getElementById('file-status-icon');
+  const statusText = document.getElementById('file-status-text');
+
+  // Show loading state
+  statusEl.className = 'text-xs rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2 bg-amber-50 text-amber-700';
+  statusIcon.textContent = '⏳';
+  statusText.textContent = \`Extracting text from \${file.name}…\`;
+  statusEl.classList.remove('hidden');
+
+  try {
+    let text = '';
+    if (ext === 'pdf') {
+      text = await extractPDF(file);
+    } else if (ext === 'docx' || ext === 'doc') {
+      text = await extractDOCX(file);
+    } else {
+      throw new Error('Unsupported file type. Please upload a .pdf, .doc, or .docx file.');
+    }
+
+    if (!text || text.trim().length < 50) {
+      throw new Error('Could not extract readable text from this file. Try copying and pasting the text directly.');
+    }
+
+    document.getElementById('review-contract-text').value = text.trim();
+
+    statusEl.className = 'text-xs rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2 bg-green-50 text-green-700';
+    statusIcon.textContent = '✓';
+    statusText.textContent = \`Extracted from \${file.name} — \${text.trim().length.toLocaleString()} characters. Review below before submitting.\`;
+
+  } catch (err) {
+    statusEl.className = 'text-xs rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2 bg-red-50 text-red-700';
+    statusIcon.textContent = '✗';
+    statusText.textContent = err.message || 'Extraction failed.';
+  }
+}
+
+async function extractPDF(file) {
+  if (!window.pdfjsLib) throw new Error('PDF library failed to load. Please refresh and try again.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    // Reconstruct lines by grouping items with similar Y positions
+    const lineMap = new Map();
+    for (const item of content.items) {
+      const y = Math.round(item.transform[5]);
+      if (!lineMap.has(y)) lineMap.set(y, []);
+      lineMap.get(y).push(item.str);
+    }
+    const sortedYs  = [...lineMap.keys()].sort((a, b) => b - a);
+    const pageLines = sortedYs.map(y => lineMap.get(y).join(' ').trim()).filter(Boolean);
+    pages.push(pageLines.join('\n'));
+  }
+  return pages.join('\n\n');
+}
+
+async function extractDOCX(file) {
+  if (!window.mammoth) throw new Error('Word library failed to load. Please refresh and try again.');
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  if (result.messages?.length) {
+    console.warn('[mammoth] warnings:', result.messages);
+  }
+  return result.value;
+}
+
 function toggleRedline() {
   const panel   = document.getElementById('redline-panel');
   const chevron = document.getElementById('redline-chevron');
@@ -1075,6 +1182,8 @@ function reset() {
   document.getElementById('name-input').value = '';
   document.getElementById('review-contract-text').value = '';
   document.getElementById('review-name').value = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-status').classList.add('hidden');
   document.getElementById('adjust-panel').classList.add('hidden');
   document.getElementById('review-panel').classList.add('hidden');
   document.getElementById('draft-panel').classList.add('hidden');
