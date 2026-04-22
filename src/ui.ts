@@ -796,6 +796,18 @@ function stopStepAnimation() {
   renderPipelineSteps(999, PIPELINE_STEPS); // all done — pass high idx so all show as complete
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function safeJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Server returned a non-JSON body (e.g. "Internal Server Error")
+    return { error: text.slice(0, 200) || \`Server error \${res.status}\` };
+  }
+}
+
 // ── Generate ─────────────────────────────────────────────────────────────────
 
 async function generateReview() {
@@ -814,7 +826,7 @@ async function generateReview() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ original_contract, name: name || undefined, user_id: 'demo' }),
     });
-    const data = await res.json();
+    const data = await safeJson(res);
     stopStepAnimation();
 
     if (!res.ok || data.error) {
@@ -863,7 +875,7 @@ async function startGeneration() {
       body: JSON.stringify({ intent, name: name || undefined, user_id: 'demo', parties: validParties }),
     });
 
-    const data = await res.json();
+    const data = await safeJson(res);
     stopStepAnimation();
 
     if (!res.ok || data.error) {
