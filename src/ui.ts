@@ -1102,7 +1102,7 @@ function openPrintWindow(opts) {
     '<div class="doc-meta">' + metaLine + '</div>',
     '<div class="content">' + bodyContent + '</div>',
     '</div>',
-    '<script>window.onload=function(){window.print();};<\/script>',
+    '<script>window.onload=function(){window.print();}</' + 'script>',
     '</body></html>'
   ];
 
