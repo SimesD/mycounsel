@@ -1,7 +1,7 @@
 # MyCounsel — AI-Powered UK Commercial Contract Platform
 
 > **Demo platform — for evaluation purposes only.**
-> Nothing produced by this system constitutes legal advice. All AI-generated drafts and risk assessments should be reviewed by a qualified solicitor before execution.
+> Nothing produced by this system constitutes legal advice. All AI-generated drafts, reviews, and risk assessments should be reviewed by a qualified solicitor before execution.
 
 ---
 
@@ -12,27 +12,34 @@
 3. [Draft Mode — Step by Step](#draft-mode--step-by-step)
 4. [Review Mode — Step by Step](#review-mode--step-by-step)
 5. [The Legal Standing Report](#the-legal-standing-report)
-6. [Supported Contract Types](#supported-contract-types)
-7. [What This Platform Does Not Do](#what-this-platform-does-not-do)
-8. [Technical Documentation](#technical-documentation)
+6. [Document Export](#document-export)
+7. [Supported Contract Types](#supported-contract-types)
+8. [What This Platform Does Not Do](#what-this-platform-does-not-do)
+9. [Technical Documentation](#technical-documentation)
 
 ---
 
 ## Overview for Legal Professionals
 
-MyCounsel is an AI-assisted contract drafting and review platform built for the English and Welsh jurisdiction. It is designed to sit alongside a qualified legal team — accelerating the production of first drafts, identifying legal vulnerabilities in existing agreements, and providing a structured risk assessment before a document is sent for execution.
+Commercial legal work is time-intensive by nature. Drafting a first contract, reviewing a counterparty's position, identifying statutory risks, and preparing a document for execution involves layers of research and skilled drafting that is difficult to accelerate without compromising quality.
 
-The platform operates as a pipeline of five specialist AI agents, each with a defined role modelled on a conventional law firm workflow:
+MyCounsel is an AI-assisted platform designed to sit alongside a qualified legal team, not to replace it. It automates the preparatory stages of contract work — research, first drafting, and risk assessment — so that a solicitor's time is directed towards review, judgement, and client advice rather than the mechanics of producing and checking a first draft.
 
-| Agent | Role | Equivalent in a law firm |
+The platform operates under English and Welsh law only. It is grounded in live statutory data from **legislation.gov.uk** and live company data from **Companies House**, not solely in a language model's training knowledge.
+
+### How It Works
+
+The platform operates as a sequential pipeline of five specialist AI agents, each modelled on a role in a conventional law firm:
+
+| Agent | What it does | Law firm equivalent |
 |---|---|---|
-| **Intake & Classification** | Parses the instruction or submitted contract, identifies the contract type, extracts parties, resolves company details via Companies House | Trainee or paralegal taking initial instructions |
-| **Legal Researcher** | Searches legislation.gov.uk for confirmed statute references; enriches with relevant case law, regulatory guidance, and an anchor case summary | Junior associate conducting a research memo |
-| **Drafting Architect** | Produces a complete, execution-ready contract under English law with all standard boilerplate clauses | Mid-level associate drafting from a precedent |
-| **Contract Reviewer** | In Review mode: analyses a submitted contract against English law, identifies deficiencies, and produces an improved version | Senior associate conducting a mark-up |
-| **Risk & Standing Agent** | Conducts an adversarial peer review of the draft or improved contract, scoring enforceability 0–100 and identifying up to three material legal vulnerabilities | Senior partner conducting a sign-off review |
+| **Intake & Classification** | Reads the instruction or submitted contract; identifies the contract type from 16 categories; extracts parties and commercial terms; resolves UK company names to registered details via Companies House | Trainee or paralegal taking initial instructions |
+| **Legal Researcher** | Queries legislation.gov.uk for confirmed statute references applicable to the contract type; enriches with case law, regulatory guidance, and an anchor case summary | Junior associate producing a research memo |
+| **Drafting Architect** | Drafts a complete, clause-by-clause contract in UK English with all mandatory boilerplate, correctly numbered and ready for execution | Mid-level associate drafting from precedent |
+| **Contract Reviewer** | In Review mode: analyses a submitted contract against current English law; identifies missing clauses, void or ambiguous provisions, and non-English law drafting; produces a corrected version | Senior associate conducting a mark-up |
+| **Risk & Standing Agent** | Adversarial peer review of the draft or improved contract; scores enforceability 0–100; identifies up to three material vulnerabilities with statutory basis; produces a recommendation | Senior partner sign-off review |
 
-All research is grounded in live data. Statute references are verified against **legislation.gov.uk** before being passed to the drafting or review agents. Party details for UK-registered companies are resolved against **Companies House** and embedded in the contract automatically.
+The output of every run is a **Legal Standing Report** — a structured risk assessment with an enforceability score, identified vulnerabilities, and a recommendation — alongside the full contract draft.
 
 ---
 
@@ -42,49 +49,69 @@ All research is grounded in live data. Statute references are verified against *
 
 Produce a complete first draft of a UK commercial contract from a plain-English description of the transaction. The platform:
 
-- Classifies the agreement type automatically
-- Resolves named companies to their registered office address and company number via Companies House
-- Fetches confirmed statute references from legislation.gov.uk
-- Drafts a full, clause-by-clause contract in UK English using the correct hierarchy (1., 1.1, 1.1.1)
+- Classifies the agreement type automatically from 16 supported categories
+- Resolves named UK companies to their registered office address and company number via Companies House, embedding them in the contract
+- Fetches confirmed statute references from legislation.gov.uk tailored to the contract type
+- Enriches with applicable case law, a leading anchor case summary, and regulatory notes
+- Drafts a full contract in UK English with clause hierarchy (1., 1.1, 1.1.1)
 - Includes all mandatory standard boilerplate: governing law and jurisdiction (England & Wales), limitation of liability, severability, entire agreement, notices, force majeure, and waiver
 - Appends execution pages with signature blocks for each party
 - Produces a Legal Standing Report with an enforceability score and identified vulnerabilities
 
 ### Review Mode
 
-Submit any existing contract — whether received from a counterparty or previously drafted — for review and improvement. The platform:
+Submit any existing contract — received from a counterparty, downloaded from a template library, or previously drafted — for review and improvement. The platform accepts:
 
-- Automatically classifies the contract type from the submitted text
-- Extracts the parties, commercial terms, and governing law from the document itself
+- **Plain text** pasted directly into the text area
+- **PDF documents** uploaded via the file picker or drag-and-drop
+- **Word documents** (.docx / .doc) uploaded via the file picker or drag-and-drop
+
+Text is extracted from uploaded files entirely in the browser before submission. The platform then:
+
+- Automatically classifies the contract type from the document content
+- Extracts parties, commercial terms, and governing law from the contract itself — no separate instruction required
 - Researches the applicable statutory framework and case law for that contract type
-- Produces an improved version correcting: missing clauses, void or unenforceable provisions, ambiguous drafting, incorrect legal terminology, and non-English law boilerplate
-- Renders a **redline** (track changes view) showing every word-level addition and deletion between the original and the improved version, displayed in the browser with red strikethrough for deletions and green highlighting for additions
-- Produces a Legal Standing Report on the improved version
+- Produces an improved version correcting: missing boilerplate clauses, void or unenforceable provisions, ambiguous drafting, incorrect legal terminology, and non-English law language
+- Renders a **redline** (track changes) view showing every word-level addition and deletion between the original and the improved version — red strikethrough for deletions, green highlight for additions
+- Produces a Legal Standing Report assessing the improved version
 
 ### Revision Workflow
 
-After reviewing the Legal Standing Report, the user has three options:
+After reviewing the Legal Standing Report, three options are available:
 
-- **Request Revision** — submit notes to the Drafting Agent, which will produce a revised version addressing the specific concerns. The Risk Agent then re-evaluates the new draft, acknowledging improvements and only flagging issues that genuinely remain.
-- **Send for Legal Review** — generate a formatted email to in-house counsel containing the full draft, the AI risk summary, and the user's message and questions. In the demo, this produces an email preview rather than dispatching a live message.
-- **Approve & Sign** — advance the agreement to the signing workflow (Adobe Sign integration; currently a placeholder in the demo).
+- **Request Revision** — submit notes to the Drafting Agent specifying what to address. The agent produces a revised version and the Risk Agent re-evaluates it, explicitly acknowledging resolved issues and raising the score accordingly. Issues that have been adequately addressed are not re-flagged.
+- **Send for Legal Review** — generates a formatted email to in-house counsel containing the full draft, the AI risk summary, and the user's message and questions. In the demo, this produces an email preview rather than dispatching a live message.
+- **Approve & Sign** — advances the agreement to the signing workflow (Adobe Sign integration is implemented but not active in the demo).
+
+### Document Export
+
+Both the contract draft and the redline can be exported as PDF:
+
+- **Export Draft PDF** — opens a print-ready A4 document set in EB Garamond, with a header showing the contract name, reference, version, parties, and date. The PDF footer (rendered via CSS `@page` rules) shows the MyCounsel reference and version on the left, the page number in the centre, and *Confidential Draft* on the right.
+- **Export Redline PDF** — the same layout but renders the full redline with the red and green track changes markup preserved. The footer identifies the document as *Track Changes*.
+
+Both exports open in a new browser tab and auto-trigger the browser's print dialog, from which the user can save as PDF.
+
+### Agreement History
+
+All contracts are saved automatically. The **My Agreements** panel lists every draft and review, with status indicator, reference number, and date. Individual agreements can be opened to view the full result, or permanently deleted.
 
 ---
 
 ## Draft Mode — Step by Step
 
-1. **Select Draft Agreement** from the mode toggle at the top of the form.
-2. **Add the parties.** Enter each party's name and role. For UK-registered companies, type the company name and select from the Companies House autocomplete — the registered address and company number will be filled in automatically and embedded in the contract.
+1. **Select ✍️ Draft Agreement** from the mode toggle at the top of the form.
+2. **Add the parties.** Enter each party's name and role. For UK-registered companies, type the name and select from the Companies House autocomplete — registered address and company number are filled in automatically and embedded in the contract.
 3. **Name the agreement** (optional). If left blank, a name is generated from the transaction description.
-4. **Describe the transaction.** Write a plain-English description of what you need. Include commercial terms — price, duration, territory, exclusivity, margins, or any specific requirements. The more detail provided, the more accurate the draft.
+4. **Describe the transaction.** Write a plain-English description. Include commercial terms — price, duration, territory, exclusivity, margins, or specific requirements. The more detail, the more accurate the draft.
 5. **Click Generate Agreement.** The four-agent pipeline runs (approximately 60 seconds). Progress is shown for each stage.
-6. **Review the Legal Standing Report.** The report shows the enforceability score, identified vulnerabilities with their statutory basis, and a recommendation.
-7. **Read the contract draft.** Expand the draft accordion to review the full text.
-8. **Make your decision:** revise, send for legal review, or approve.
+6. **Review the Legal Standing Report.** The report shows the enforceability score, identified vulnerabilities with statutory basis, and a recommendation.
+7. **Review the contract draft.** Expand the *View Contract Draft* accordion. The version badge shows the version number, date, and authoring agent.
+8. **Export or decide.** Export to PDF, request a revision, send for legal review, or approve.
 
 ### Example instructions
 
-> *Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% gross margin. 3-year initial term with automatic annual renewal. Supplier retains right to terminate on 6 months' notice.*
+> *Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% gross margin. 3-year initial term with automatic annual renewal. Supplier retains the right to terminate on 6 months' notice.*
 
 > *SaaS subscription agreement for cloud-based inventory management software. £24,000 per year, invoiced annually in advance. 2-year initial term with auto-renewal. Customer data processed in the UK only. 99.5% uptime SLA.*
 
@@ -94,52 +121,71 @@ After reviewing the Legal Standing Report, the user has three options:
 
 ## Review Mode — Step by Step
 
-1. **Select Review Contract** from the mode toggle at the top of the form.
+1. **Select 🔍 Review Contract** from the mode toggle at the top of the form.
 2. **Name the review** (optional).
-3. **Paste the full contract text** into the text area. The platform accepts plain text; paste directly from a word processor or document viewer.
-4. **Click Review Contract.** The pipeline runs (approximately 60 seconds). The intake agent reads the contract itself to classify it and extract parties and commercial terms.
-5. **Review the Legal Standing Report.** This report assesses the *improved* version of the contract, not the original.
-6. **Open the Redline.** Expand the *Track Changes* accordion to see a word-level diff of every change made between your original and the improved version.
-7. **Review the improved draft.** The full improved text is available in the *View Contract Draft* accordion.
-8. **Make your decision:** request a further revision, send for legal review, or approve.
+3. **Submit the contract.** Either:
+   - Upload a PDF or Word file using the upload zone (drag-and-drop or click to browse). Text is extracted in the browser and shown in the text area for review before submission.
+   - Paste the full contract text directly into the text area.
+4. **Click Review Contract.** The pipeline runs (approximately 60 seconds). The intake agent reads the contract to classify it and extract all parties and terms — no separate description is required.
+5. **Review the Legal Standing Report.** The report assesses the *improved* version of the contract.
+6. **Open the Redline.** Expand the *Track Changes* accordion to see every change made between the original and the improved version. Export the redline as PDF for sharing.
+7. **Review the improved draft.** The full improved contract is in the *View Contract Draft* accordion. Export as PDF.
+8. **Decide.** Request a further revision with specific notes, send to in-house counsel for review, or approve.
 
 ---
 
 ## The Legal Standing Report
 
-The Legal Standing Report is produced by the Risk & Standing Agent, which conducts an adversarial peer review of the contract — identifying weaknesses that opposing counsel could exploit.
+The Legal Standing Report is produced by the Risk & Standing Agent, which conducts an adversarial peer review of the contract — approaching it as opposing counsel seeking weaknesses to exploit.
 
 ### Enforceability Score
 
-The score (0–100) reflects the agent's assessment of the overall legal soundness of the agreement under English law.
+The score (0–100) reflects the agent's assessment of the overall legal soundness of the agreement under English law. It is displayed as a colour-coded ring dial.
 
-| Score | Colour | Assessment |
-|---|---|---|
-| 95–100 | 🟢 Green + ⭐ | Outstanding |
-| 90–94 | 🟢 Green | Exceptional |
-| 75–89 | 🟢 Green | Good |
-| 60–74 | 🟡 Amber | Notable Gaps |
-| 40–59 | 🟠 Orange | Significant Weaknesses |
-| 0–39 | 🔴 Red | Do Not Execute |
+| Score | Colour | Assessment | Action |
+|---|---|---|---|
+| 95–100 | 🟢 Green + ⭐ | Outstanding | Approve with confidence |
+| 90–94 | 🟢 Green | Exceptional | Consider approving |
+| 75–89 | 🟢 Green | Good | Minor points only |
+| 60–74 | 🟡 Amber | Notable Gaps | Revision recommended |
+| 40–59 | 🟠 Orange | Significant Weaknesses | Revision required |
+| 0–39 | 🔴 Red | Do Not Execute | Fundamental defects |
 
-The score is displayed as a ring dial. The score number and ring colour both reflect the band. A gold star (⭐) appears for scores of 95 or above.
+The score number and ring colour reflect the same band. A gold star (⭐) appears for scores of 95 or above.
 
 ### Identified Vulnerabilities
 
 Up to three material legal weaknesses are reported, each with:
 - A plain-English title
-- A detailed explanation of the risk and how it could be exploited
+- A detailed explanation of the risk and how it could be exploited by opposing counsel
 - The specific statutory or case law basis (e.g. *Unfair Contract Terms Act 1977 s.11 — reasonableness test*)
 
 ### Revision Convergence
 
-When a revision is requested, the Risk Agent compares the new draft against the previous report. It explicitly acknowledges which issues have been resolved, raises the score accordingly, and will not re-flag issues that have been adequately addressed. This prevents circular revision loops.
+When a revision is requested, the Risk Agent compares the new draft against the previous report. It explicitly acknowledges which issues have been resolved, raises the score accordingly, and will not re-flag issues that have been adequately addressed. This prevents circular revision loops and gives an honest picture of whether the revision actually improved matters.
+
+---
+
+## Document Export
+
+### Draft PDF
+
+Clicking **↓ Export PDF** in the *View Contract Draft* panel opens a formatted A4 print window:
+
+- Typeset in **EB Garamond** — a classical legal document typeface
+- Header shows: contract name, reference number, version, parties, and date
+- Footer (on every page via CSS `@page`): MyCounsel reference and version · Page N · Confidential Draft
+- Auto-triggers the browser print dialog for Save as PDF
+
+### Redline PDF
+
+Clicking **↓ Export PDF** in the *Track Changes* panel produces the same layout with the redline markup preserved — red strikethrough for deletions, green highlight for additions — suitable for sharing with a counterparty or in-house counsel.
 
 ---
 
 ## Supported Contract Types
 
-The research pipeline has specialist legislation and case law coverage for the following contract types. The correct type is detected automatically from the transaction description or submitted contract text.
+The research pipeline has specialist legislation and case law coverage for 16 contract types. The correct type is detected automatically from the transaction description or submitted contract text.
 
 | Contract Type | Key Legislation |
 |---|---|
@@ -151,32 +197,32 @@ The research pipeline has specialist legislation and case law coverage for the f
 | Commercial Lease | Landlord and Tenant Act 1954, Law of Property Act 1925, Landlord and Tenant (Covenants) Act 1995 |
 | IP Licence | Copyright Designs and Patents Act 1988, Trade Marks Act 1994, Patents Act 1977 |
 | Services Agreement | Supply of Goods and Services Act 1982, Late Payment of Commercial Debts Act 1998 |
-| NDA / Confidentiality Agreement | Trade Secrets (Enforcement etc) Regulations 2018, Misrepresentation Act 1967 |
+| NDA / Confidentiality Agreement | Trade Secrets (Enforcement etc) Regulations 2018, Misrepresentation Act 1967, Employment Rights Act 1996 |
 | Share Purchase Agreement | Companies Act 2006, Financial Services and Markets Act 2000, Misrepresentation Act 1967 |
-| Loan Agreement | Financial Services and Markets Act 2000, Consumer Credit Act 1974 |
-| Franchise Agreement | Competition Act 1998, Vertical Agreements Block Exemption Order 2022 |
+| Loan Agreement | Financial Services and Markets Act 2000, Consumer Credit Act 1974, Late Payment of Commercial Debts Act 1998 |
+| Franchise Agreement | Competition Act 1998, Vertical Agreements Block Exemption Order 2022, Commercial Agents Regulations 1993 |
 | Joint Venture Agreement | Companies Act 2006, Competition Act 1998, Partnership Act 1890 |
-| Construction Contract | Housing Grants Construction and Regeneration Act 1996, Construction (Design and Management) Regulations 2015 |
-| Agency Agreement | Commercial Agents (Council Directive) Regulations 1993, Competition Act 1998 |
+| Construction Contract | Housing Grants Construction and Regeneration Act 1996, Construction (Design and Management) Regulations 2015, Defective Premises Act 1972 |
+| Agency Agreement | Commercial Agents (Council Directive) Regulations 1993, Competition Act 1998, Supply of Goods and Services Act 1982 |
 | Consultancy Agreement | Supply of Goods and Services Act 1982, Employment Rights Act 1996, IR35 (ITEPA 2003) |
 
-All contract types additionally reference the **Unfair Contract Terms Act 1977** and the **Misrepresentation Act 1967**, which apply across virtually all commercial agreements.
+All contract types additionally reference the **Unfair Contract Terms Act 1977** and the **Misrepresentation Act 1967**, which apply across virtually all commercial agreements under English law.
 
 ---
 
 ## What This Platform Does Not Do
 
-The following are current limitations of the demo. They represent production build items rather than fundamental constraints.
+The following are current limitations of the demo. They represent production build items rather than fundamental constraints of the approach.
 
-| Limitation | Status |
+| Limitation | Notes |
 |---|---|
 | **Not legal advice** | AI output is a starting point only. A qualified solicitor must review before execution. |
-| **Electronic signing** | Adobe Sign integration is present and typed but not active in the demo. The approve workflow records the decision but does not dispatch to signatories. |
-| **Lawyer email dispatch** | The legal review workflow produces a correctly formatted email preview but does not send a live email. Production would use Cloudflare Email Workers or a transactional email service. |
+| **Electronic signing** | Adobe Sign integration is fully implemented in code but not active in the demo. The approve workflow records the decision and reference but does not dispatch documents to signatories. |
+| **Lawyer email dispatch** | The legal review workflow produces a correctly formatted email preview but does not send a live message. Production would use Cloudflare Email Workers or a transactional email service such as Resend. |
 | **User authentication** | The demo uses a fixed `demo` user ID. Production would require proper identity management. |
 | **Jurisdiction** | English and Welsh law only. Scottish law, Northern Irish law, and other jurisdictions are not supported. |
-| **Document upload** | Review mode accepts pasted plain text only. PDF and DOCX upload is a planned enhancement. |
-| **Non-standard contract types** | Highly specialised agreements (financial instruments, regulated products, constitutional documents) fall back to general English contract law principles and may require more manual input. |
+| **Non-standard contract types** | Highly specialised agreements (financial instruments, regulated consumer credit, constitutional documents) fall back to general English contract law principles and may require additional manual input. |
+| **PDF page count in footer** | Page numbers appear as *Page N* in the exported PDF. *Page N of M* (total page count) requires a browser that fully supports CSS `@page counter(pages)`, which is not yet universally available. |
 
 ---
 
@@ -194,16 +240,20 @@ The following are current limitations of the demo. They represent production bui
 | AI | Google Gemini (via `@google/genai`) |
 | External APIs | legislation.gov.uk search API, Companies House REST API |
 | E-signing | Adobe Sign / Acrobat Sign REST API v6 (placeholder) |
+| PDF parsing (client) | PDF.js 3.11 (lazy-loaded) |
+| DOCX parsing (client) | mammoth.js 1.8 (lazy-loaded) |
 
 ### AI Models
 
 | Agent | Model | Role |
 |---|---|---|
-| Intake & Classification | `gemini-3.1-flash-lite-preview` | Fast structured extraction |
+| Intake & Classification | `gemini-3.1-flash-lite-preview` | Fast structured extraction with JSON schema |
 | Legal Researcher | `gemini-3-flash-preview` | Research + case law enrichment |
 | Drafting Architect | `gemini-3-flash-preview` | Full contract generation |
-| Contract Reviewer | `gemini-2.5-flash-preview-05-20` | Contract analysis and improvement |
+| Contract Reviewer | `gemini-3-flash-preview` | Contract analysis and improvement |
 | Risk & Standing | `gemini-3-flash-preview` | Adversarial peer review |
+
+All models are accessed via the Google AI (`aistudio.google.com`) API surface. A **Tier 1** key (billing-enabled project) is required — free-tier keys have a hard limit of 20 requests per day and will fail on any non-trivial usage.
 
 ### Prerequisites
 
@@ -235,14 +285,20 @@ wrangler dev
 # Open http://localhost:8787
 ```
 
+> **Note:** If you update `schema.sql` after the database already exists locally, wipe and recreate it:
+> ```bash
+> rm -rf .wrangler/state
+> wrangler d1 execute mycounsel-db --local --file=schema.sql
+> ```
+
 ### Environment Variables
 
 Set in `.dev.vars` for local development. Set via `wrangler secret put` for production.
 
 | Variable | Required | Description |
 |---|---|---|
-| `GOOGLE_AI_API_KEY` | ✅ | Google AI API key (must be Tier 1 / billing-enabled project) |
-| `COMPANIES_HOUSE_KEY` | ✅ | Companies House API key |
+| `GOOGLE_AI_API_KEY` | ✅ | Google AI API key — must be Tier 1 (billing-enabled project). The key prefix `AIzaSy...` identifies an AI Studio key; ensure the project has billing enabled and is on Tier 1 in the rate limits dashboard. |
+| `COMPANIES_HOUSE_KEY` | ✅ | Companies House API key (free registration) |
 | `ADOBE_SIGN_ACCESS_TOKEN` | Demo placeholder | Adobe Sign OAuth access token |
 | `ADOBE_SIGN_CLIENT_ID` | Demo placeholder | Adobe Sign client ID (used for webhook verification) |
 | `ADOBE_SIGN_CLIENT_SECRET` | Demo placeholder | Adobe Sign client secret |
@@ -275,11 +331,12 @@ npm run deploy
 |---|---|---|
 | `GET` | `/` | Demo UI |
 | `POST` | `/contract/generate` | Start a new draft pipeline |
-| `POST` | `/contract/review` | Start a new review pipeline |
+| `POST` | `/contract/review` | Start a new review pipeline (accepts `original_contract` text) |
 | `GET` | `/contract/:id` | Retrieve full contract state as JSON |
 | `GET` | `/contract/:id/report` | Legal Standing Report as Markdown |
 | `POST` | `/contract/:id/decision` | Submit `ADJUST` or `APPROVE` decision |
 | `POST` | `/contract/:id/legal-review` | Send draft and message to in-house lawyers |
+| `DELETE` | `/contract/:id` | Permanently delete a contract |
 | `POST` | `/webhooks/adobe-sign` | Receive `AGREEMENT_SIGNED` webhook from Adobe Sign |
 | `GET` | `/contracts?user_id=xxx` | List contracts for a user |
 | `GET` | `/companies-house/search?q=xxx` | Proxy Companies House company search |
@@ -290,39 +347,47 @@ npm run deploy
 src/
 ├── index.ts               # Hono router — all HTTP endpoints
 ├── pipeline.ts            # Agent pipeline orchestration (generate, review, resume)
-├── state.ts               # ContractState type, ContractType taxonomy
+├── state.ts               # ContractState type, ContractType taxonomy (16 types)
 ├── db.ts                  # D1 persistence layer
-├── report.ts              # Legal Standing Report formatter
-├── retry.ts               # Gemini 429/503 retry wrapper
+├── report.ts              # Legal Standing Report Markdown formatter
+├── retry.ts               # Gemini 429/503 retry wrapper with parsed delay
 ├── ui.ts                  # Single-file demo UI (HTML/CSS/JS)
 │
 ├── agents/
 │   ├── intake.ts          # Agent A — Intake & Classification
-│   ├── researcher.ts      # Agent B — Legal Researcher
+│   ├── researcher.ts      # Agent B — Legal Researcher (legislation.gov.uk + Gemini)
 │   ├── drafter.ts         # Agent C — Drafting Architect
-│   ├── reviewer.ts        # Agent E — Contract Reviewer (review mode)
-│   ├── risk.ts            # Agent D — Risk & Standing
+│   ├── reviewer.ts        # Agent E — Contract Reviewer (review mode only)
+│   ├── risk.ts            # Agent D — Risk & Standing (adversarial peer review)
 │   └── signing.ts         # Signing node (Adobe Sign placeholder)
 │
 └── integrations/
     ├── companies-house.ts # Companies House REST API client
-    ├── legislation.ts     # legislation.gov.uk search client
-    └── adobe-sign.ts      # Adobe Sign REST API client (placeholder)
+    ├── legislation.ts     # legislation.gov.uk search client + contract-type query map
+    └── adobe-sign.ts      # Adobe Sign REST API v6 client (placeholder)
 
-schema.sql                 # D1 database schema
+schema.sql                 # D1 database schema (contracts table + indexes + trigger)
 wrangler.toml              # Cloudflare Workers configuration
 ```
+
+### Key Design Notes
+
+**Template literal escaping.** The entire demo UI is returned as a single TypeScript template literal from `renderUI()`. Any JavaScript embedded in the `<script>` block that itself uses template literals must escape backticks as `` \` `` and interpolations as `\${`. String literals using `\n` will resolve to real newlines (a JS syntax error in the output) — use `\\n` instead. Single-quoted strings with `\'` will lose the backslash — use double quotes for CSS values. The sequence `</script>` must never appear literally in string values — split it as `'</' + 'script>'`.
+
+**Lazy library loading.** PDF.js and mammoth.js are not loaded at page load. They are injected via `loadScript()` only when a file is uploaded. This prevents third-party library initialisation errors from breaking the page's inline script block.
+
+**Schema migrations.** The local D1 database is not migrated automatically when columns are added to `schema.sql`. Wipe `.wrangler/state` and reapply the schema after any schema change.
 
 ### Rate Limiting Notes
 
 All Gemini API calls are wrapped in a retry handler (`src/retry.ts`) that:
-- Parses the `retry-in` delay from 429 responses and waits accordingly
+- Parses the `retry-in` delay from 429 responses and waits the specified duration before retrying
 - Backs off with increasing delays on 503 (model overload) responses
 - Retries up to 5 times before surfacing the error
-- Immediately surfaces daily quota exhaustion errors (these will not recover within the request window)
+- Immediately surfaces daily quota exhaustion errors, which will not recover within the request window
 
-A Tier 1 Google AI API key (billing-enabled project) is required. Free-tier keys have a hard limit of 20 requests per day on some models and will cause pipeline failures on any non-trivial usage.
+A **Tier 1** Google AI API key is required. The key must belong to a project with billing enabled and Tier 1 confirmed in the [rate limits dashboard](https://aistudio.google.com/ratelimits). Free-tier keys are hard-limited to 20 requests per day on some models and will cause pipeline failures. If commits are being attributed to the wrong GitHub user, ensure `git config --global user.email` matches the noreply address shown in your GitHub Settings → Emails page (`{id}+{username}@users.noreply.github.com`).
 
 ---
 
-*MyCounsel is a demonstration platform. It is not a regulated legal service and does not provide legal advice. Always consult a qualified solicitor before executing any agreement.*
+*MyCounsel is a demonstration platform. It is not a regulated legal service and does not constitute legal advice. Always consult a qualified solicitor before executing any agreement.*
