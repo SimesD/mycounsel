@@ -10,9 +10,9 @@
  * The browser computes the diff between original_contract and the improved version.
  */
 
-import { withRetry } from '../retry';
-import { GoogleGenAI } from '@google/genai';
-import { ContractState, DraftVersion } from '../state';
+import { withRetry } from "../retry";
+import { GoogleGenAI } from "@google/genai";
+import { ContractState, DraftVersion } from "../state";
 
 const REVIEWER_SYSTEM = `You are a Senior Solicitor at a leading City of London law firm conducting a thorough review and improvement of a contract submitted by a client.
 
@@ -38,32 +38,32 @@ OUTPUT: Return ONLY the complete improved contract as plain text. Do not include
 
 export async function reviewerNode(
   state: ContractState,
-  env: Env
+  env: Env,
 ): Promise<Partial<ContractState>> {
   const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
 
   if (!state.original_contract) {
-    throw new Error('reviewerNode: no original_contract in state');
+    throw new Error("reviewerNode: no original_contract in state");
   }
 
   const statutoryFramework = state.legal_context.statutes
     .map((s) => `  • ${s}`)
-    .join('\n');
+    .join("\n");
   const precedents = state.legal_context.precedents
     .map((p) => `  • ${p}`)
-    .join('\n');
+    .join("\n");
   const partiesBlock = state.inputs.parties
     .map(
       (p) =>
-        `  - ${p.name} (${p.role})${p.co_number ? `, Co. No. ${p.co_number}` : ''}${p.address ? `, ${p.address}` : ''}`
+        `  - ${p.name} (${p.role})${p.co_number ? `, Co. No. ${p.co_number}` : ""}${p.address ? `, ${p.address}` : ""}`,
     )
-    .join('\n');
+    .join("\n");
 
   const prompt = `${REVIEWER_SYSTEM}
 
-CONTRACT TYPE: ${state.contract_type ?? 'UNKNOWN'}
+CONTRACT TYPE: ${state.contract_type ?? "UNKNOWN"}
 PARTIES (resolved via Companies House):
-${partiesBlock || '  (See contract)'}
+${partiesBlock || "  (See contract)"}
 
 APPLICABLE STATUTORY FRAMEWORK (confirmed from legislation.gov.uk):
 ${statutoryFramework}
@@ -72,7 +72,7 @@ RELEVANT CASE LAW:
 ${precedents}
 
 ANCHOR CASE:
-${state.legal_context.anchor_case_summary ?? 'Not provided'}
+${state.legal_context.anchor_case_summary ?? "Not provided"}
 
 ---
 ORIGINAL CONTRACT SUBMITTED FOR REVIEW:
@@ -84,23 +84,23 @@ Produce the complete improved contract below. Make all necessary corrections and
 
   const response = await withRetry(() =>
     ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-05-20',
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: { temperature: 0.1 },
-    })
+    }),
   );
 
-  const improvedContent = response.text ?? '';
+  const improvedContent = response.text ?? "";
 
   const newVersion: DraftVersion = {
     version: 1,
     content: improvedContent,
-    author: 'Agent E — Contract Reviewer',
+    author: "Agent E — Contract Reviewer",
     created_at: new Date().toISOString(),
   };
 
   return {
-    status: 'RISK_ASSESSMENT',
+    status: "RISK_ASSESSMENT",
     draft_versions: [newVersion],
   };
 }
