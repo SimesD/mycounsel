@@ -1067,9 +1067,9 @@ async function extractPDF(file) {
     }
     const sortedYs  = [...lineMap.keys()].sort((a, b) => b - a);
     const pageLines = sortedYs.map(y => lineMap.get(y).join(' ').trim()).filter(Boolean);
-    pages.push(pageLines.join('\n'));
+    pages.push(pageLines.join('\\n'));
   }
-  return pages.join('\n\n');
+  return pages.join('\\n\\n');
 }
 
 async function extractDOCX(file) {
