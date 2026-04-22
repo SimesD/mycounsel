@@ -8,8 +8,7 @@ export function renderUI(): string {
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/diff@5.2.0/dist/diff.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -997,6 +996,17 @@ function toggleDraft() {
 
 // ── File upload (PDF / DOCX) ─────────────────────────────────────────────────
 
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(\`script[src="\${src}"]\`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error(\`Failed to load \${src}\`));
+    document.head.appendChild(s);
+  });
+}
+
 async function handleFileUpload(file) {
   if (!file) return;
   const ext = file.name.split('.').pop().toLowerCase();
@@ -1004,7 +1014,6 @@ async function handleFileUpload(file) {
   const statusIcon = document.getElementById('file-status-icon');
   const statusText = document.getElementById('file-status-text');
 
-  // Show loading state
   statusEl.className = 'text-xs rounded-lg px-3 py-2.5 mb-3 flex items-start gap-2 bg-amber-50 text-amber-700';
   statusIcon.textContent = '⏳';
   statusText.textContent = \`Extracting text from \${file.name}…\`;
@@ -1038,6 +1047,7 @@ async function handleFileUpload(file) {
 }
 
 async function extractPDF(file) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
   if (!window.pdfjsLib) throw new Error('PDF library failed to load. Please refresh and try again.');
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1049,7 +1059,6 @@ async function extractPDF(file) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page    = await pdf.getPage(i);
     const content = await page.getTextContent();
-    // Reconstruct lines by grouping items with similar Y positions
     const lineMap = new Map();
     for (const item of content.items) {
       const y = Math.round(item.transform[5]);
@@ -1064,6 +1073,7 @@ async function extractPDF(file) {
 }
 
 async function extractDOCX(file) {
+  await loadScript('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js');
   if (!window.mammoth) throw new Error('Word library failed to load. Please refresh and try again.');
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
