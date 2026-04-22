@@ -7,6 +7,7 @@ export function renderUI(): string {
   <title>MyCounsel — UK Legal Drafting</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/diff@5.2.0/dist/diff.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -64,6 +65,27 @@ export function renderUI(): string {
     .warning-card {
       border-left: 3px solid var(--gold);
     }
+
+    .diff-del {
+      background: #fee2e2;
+      color: #991b1b;
+      text-decoration: line-through;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+    .diff-add {
+      background: #dcfce7;
+      color: #166534;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+    .redline-content {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body class="min-h-screen">
@@ -85,38 +107,70 @@ export function renderUI(): string {
     <!-- ── STEP 1: Input ── -->
     <section id="step-input" class="fade-in">
       <div class="text-center mb-8">
-        <h1 class="serif text-4xl font-bold mb-3" style="color: var(--navy)">Draft a UK Commercial Agreement</h1>
-        <p class="text-slate-500 text-sm max-w-lg mx-auto">Add the parties, describe your transaction, and our agents will research UK law, draft the agreement, and produce a Legal Standing Report.</p>
+        <h1 id="page-title" class="serif text-4xl font-bold mb-3" style="color: var(--navy)">Draft a UK Commercial Agreement</h1>
+        <p id="page-subtitle" class="text-slate-500 text-sm max-w-lg mx-auto">Add the parties, describe your transaction, and our agents will research UK law, draft the agreement, and produce a Legal Standing Report.</p>
       </div>
 
       <div class="bg-white rounded-2xl shadow-md p-8 border border-slate-100 space-y-6">
 
-        <!-- Parties -->
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <label class="text-sm font-medium text-slate-700">Parties to the agreement</label>
-            <button onclick="addParty()" class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors" style="border-color:var(--navy);color:var(--navy)">+ Add party</button>
-          </div>
-          <div id="parties-list" class="space-y-3"></div>
+        <!-- Mode toggle -->
+        <div class="flex rounded-xl overflow-hidden border border-slate-200 w-fit mx-auto">
+          <button id="mode-btn-draft" onclick="setMode('DRAFT')" class="px-6 py-2.5 text-sm font-medium transition-colors text-white" style="background:var(--navy)">✍️ Draft Agreement</button>
+          <button id="mode-btn-review" onclick="setMode('REVIEW')" class="px-6 py-2.5 text-sm font-medium transition-colors text-slate-500 bg-white">🔍 Review Contract</button>
         </div>
 
-        <div class="border-t border-slate-100 pt-6 space-y-4">
+        <!-- Draft mode fields -->
+        <div id="draft-input-section">
+          <!-- Parties -->
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">Agreement name <span class="text-slate-400 font-normal">(optional — auto-generated if blank)</span></label>
+            <div class="flex items-center justify-between mb-3">
+              <label class="text-sm font-medium text-slate-700">Parties to the agreement</label>
+              <button onclick="addParty()" class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors" style="border-color:var(--navy);color:var(--navy)">+ Add party</button>
+            </div>
+            <div id="parties-list" class="space-y-3"></div>
+          </div>
+
+          <div class="border-t border-slate-100 pt-6 space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">Agreement name <span class="text-slate-400 font-normal">(optional — auto-generated if blank)</span></label>
+              <input
+                id="name-input"
+                type="text"
+                placeholder="e.g. Tofka Vodka Distribution Agreement 2026"
+                class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-2">Describe the agreement &amp; key commercial terms</label>
+              <textarea
+                id="intent-input"
+                rows="4"
+                placeholder="e.g. Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term with auto-renewal."
+                class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Review mode fields -->
+        <div id="review-input-section" class="hidden space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Contract name <span class="text-slate-400 font-normal">(optional)</span></label>
             <input
-              id="name-input"
+              id="review-name"
               type="text"
-              placeholder="e.g. Tofka Vodka Distribution Agreement 2026"
+              placeholder="e.g. Supplier NDA Review"
               class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2"
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">Describe the agreement &amp; key commercial terms</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Paste the contract to review</label>
+            <p class="text-xs text-slate-400 mb-2">Paste the full text of the contract. Our agents will classify it, research applicable UK law, and produce an improved redlined version with a Legal Standing Report.</p>
             <textarea
-              id="intent-input"
-              rows="4"
-              placeholder="e.g. Exclusive distribution agreement for Tofka Vodka in England and Wales. Distributor must maintain a minimum 30% margin. 3-year term with auto-renewal."
-              class="w-full rounded-xl border border-slate-200 p-4 text-sm focus:outline-none focus:ring-2 resize-none"
+              id="review-contract-text"
+              rows="14"
+              placeholder="Paste contract text here…"
+              class="w-full rounded-xl border border-slate-200 p-4 text-sm font-mono focus:outline-none focus:ring-2 resize-none"
             ></textarea>
           </div>
         </div>
@@ -124,17 +178,17 @@ export function renderUI(): string {
         <div class="flex items-center gap-3 pt-2">
           <button
             id="btn-generate"
-            onclick="startGeneration()"
+            onclick="currentMode === 'REVIEW' ? generateReview() : startGeneration()"
             class="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
             style="background: var(--navy); color: white;"
             onmouseover="this.style.background='var(--navy-light)'"
             onmouseout="this.style.background='var(--navy)'"
           >
-            Generate Agreement &rarr;
+            <span id="btn-generate-label">Generate Agreement &rarr;</span>
           </button>
         </div>
 
-        <p class="text-xs text-slate-400 text-center">Takes ~60 seconds &middot; Checks legislation.gov.uk &amp; Companies House &middot; English law only</p>
+        <p id="form-hint" class="text-xs text-slate-400 text-center">Takes ~60 seconds &middot; Checks legislation.gov.uk &amp; Companies House &middot; English law only</p>
       </div>
 
       <!-- Example prompts -->
@@ -156,7 +210,7 @@ export function renderUI(): string {
     <section id="step-loading" class="hidden fade-in">
       <div class="bg-white rounded-2xl shadow-md p-10 border border-slate-100 text-center">
         <div class="serif text-2xl font-semibold mb-2" style="color: var(--navy)">Agents at work</div>
-        <p class="text-sm text-slate-400 mb-10">Four specialist agents are researching and drafting your agreement</p>
+        <p id="processing-subtitle" class="text-sm text-slate-400 mb-10">Four specialist agents are researching and drafting your agreement</p>
 
         <div class="space-y-5 text-left max-w-sm mx-auto" id="pipeline-steps">
           <!-- Injected by JS -->
@@ -177,12 +231,14 @@ export function renderUI(): string {
             </div>
             <h2 class="serif text-2xl font-bold" style="color: var(--navy)" id="result-title">Agreement</h2>
             <p class="text-xs text-slate-400 mt-1" id="result-parties"></p>
+            <span id="result-contract-type" class="hidden text-xs font-semibold px-2.5 py-1 rounded-full mt-2 inline-block" style="background:rgba(15,30,53,0.08);color:var(--navy)"></span>
           </div>
           <div class="flex flex-col items-center">
             <div id="score-circle" class="w-20 h-20 rounded-full flex items-center justify-center relative" style="background: conic-gradient(#c9a84c 0%, #e2e8f0 0%);">
               <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center">
                 <span id="score-number" class="serif text-xl font-bold" style="color: var(--navy)">—</span>
               </div>
+              <span id="score-star" class="absolute -top-3 -right-2 text-xl hidden" title="Outstanding — 95+">⭐</span>
             </div>
             <span id="score-label" class="text-xs text-slate-500 mt-2 font-medium text-center max-w-[90px]"></span>
           </div>
@@ -212,6 +268,34 @@ export function renderUI(): string {
         <div id="draft-panel" class="hidden px-8 pb-8">
           <div class="bg-slate-50 rounded-xl p-6 overflow-auto max-h-96">
             <pre id="draft-content" class="draft-content text-slate-700"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Redline accordion (review mode only) -->
+      <div id="redline-panel-wrapper" class="hidden bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden">
+        <button
+          onclick="toggleRedline()"
+          class="w-full flex items-center justify-between px-8 py-5 text-left"
+          style="color: var(--navy)"
+        >
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Track Changes</div>
+            <span class="serif font-semibold text-lg">Redline — Original vs Improved</span>
+          </div>
+          <span id="redline-chevron" class="text-slate-400 text-xl">&#8964;</span>
+        </button>
+        <div id="redline-panel" class="hidden">
+          <div class="px-8 py-3 bg-slate-50 border-t border-b border-slate-100 flex gap-6 text-xs text-slate-500">
+            <span class="flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-sm" style="background:#fee2e2;border:1px solid #fca5a5"></span>Deleted
+            </span>
+            <span class="flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-sm" style="background:#dcfce7;border:1px solid #86efac"></span>Added
+            </span>
+          </div>
+          <div class="px-8 pb-8 pt-4 overflow-auto max-h-[600px]">
+            <div id="redline-content" class="redline-content text-slate-700"></div>
           </div>
         </div>
       </div>
@@ -384,6 +468,45 @@ const PIPELINE_STEPS = [
 
 let currentContractId = null;
 let stepTimer = null;
+let currentMode = 'DRAFT';
+
+const PIPELINE_STEPS_REVIEW = [
+  { label: "Intake & Classification", sub: "Identifying contract type · Extracting parties & terms", sources: "Companies House API · English law jurisdiction check" },
+  { label: "Legal Research",          sub: "Searching applicable UK statutes and case law",           sources: "legislation.gov.uk · CMA guidance · UK case law" },
+  { label: "Contract Review",         sub: "Analysing and improving the submitted contract",          sources: "UCTA 1977 · Misrepresentation Act 1967 · UK drafting standards" },
+  { label: "Risk & Standing Assessment", sub: "Adversarial peer review — identifying vulnerabilities", sources: "Competition Act 1998 · English law enforceability" },
+];
+
+function setMode(mode) {
+  currentMode = mode;
+  const isDraft = mode === 'DRAFT';
+
+  document.getElementById('draft-input-section').classList.toggle('hidden', !isDraft);
+  document.getElementById('review-input-section').classList.toggle('hidden', isDraft);
+
+  const draftBtn  = document.getElementById('mode-btn-draft');
+  const reviewBtn = document.getElementById('mode-btn-review');
+  draftBtn.style.background  = isDraft  ? 'var(--navy)' : '';
+  draftBtn.style.color       = isDraft  ? '#fff'        : '';
+  reviewBtn.style.background = !isDraft ? 'var(--navy)' : '';
+  reviewBtn.style.color      = !isDraft ? '#fff'        : '';
+
+  document.getElementById('btn-generate-label').textContent = isDraft
+    ? 'Generate Agreement \u2192'
+    : 'Review Contract \u2192';
+
+  document.getElementById('page-title').textContent = isDraft
+    ? 'Draft a UK Commercial Agreement'
+    : 'Review an Existing Contract';
+
+  document.getElementById('page-subtitle').textContent = isDraft
+    ? 'Add the parties, describe your transaction, and our agents will research UK law, draft the agreement, and produce a Legal Standing Report.'
+    : 'Paste any contract below. Our agents will classify it, research the applicable UK law, improve it, and produce a redlined version with a Legal Standing Report.';
+
+  document.getElementById('form-hint').textContent = isDraft
+    ? 'Takes ~60 seconds \u00b7 Checks legislation.gov.uk & Companies House \u00b7 English law only'
+    : 'Takes ~60 seconds \u00b7 Classifies contract type \u00b7 Produces redline under English law';
+}
 
 // ── Party form state ──────────────────────────────────────────────────────────
 
@@ -597,9 +720,10 @@ function setError(msg) {
 
 // ── Pipeline loading animation ──────────────────────────────────────────────
 
-function renderPipelineSteps(activeIdx) {
+function renderPipelineSteps(activeIdx, steps) {
+  steps = steps || PIPELINE_STEPS;
   const container = document.getElementById('pipeline-steps');
-  container.innerHTML = PIPELINE_STEPS.map((step, i) => {
+  container.innerHTML = steps.map((step, i) => {
     const done    = i < activeIdx;
     const active  = i === activeIdx;
     const pending = i > activeIdx;
@@ -623,15 +747,16 @@ function renderPipelineSteps(activeIdx) {
   }).join('');
 }
 
-function startStepAnimation() {
+function startStepAnimation(steps) {
+  steps = steps || PIPELINE_STEPS;
   let idx = 0;
-  renderPipelineSteps(idx);
-  // Approximate timings: intake ~5s, research ~15s, draft ~20s, risk ~15s
+  renderPipelineSteps(idx, steps);
+  // Approximate timings: intake ~5s, research ~15s, draft/review ~20s, risk ~15s
   const durations = [5000, 15000, 20000, 15000];
   function advance() {
     idx++;
-    if (idx < PIPELINE_STEPS.length) {
-      renderPipelineSteps(idx);
+    if (idx < steps.length) {
+      renderPipelineSteps(idx, steps);
       stepTimer = setTimeout(advance, durations[idx] || 15000);
     }
   }
@@ -640,10 +765,47 @@ function startStepAnimation() {
 
 function stopStepAnimation() {
   if (stepTimer) clearTimeout(stepTimer);
-  renderPipelineSteps(PIPELINE_STEPS.length); // all done
+  renderPipelineSteps(999, PIPELINE_STEPS); // all done — pass high idx so all show as complete
 }
 
 // ── Generate ─────────────────────────────────────────────────────────────────
+
+async function generateReview() {
+  const original_contract = document.getElementById('review-contract-text').value.trim();
+  const name = document.getElementById('review-name').value.trim();
+  if (original_contract.length < 100) { setError('Please paste a contract of at least 100 characters.'); return; }
+  setError('');
+
+  document.getElementById('processing-subtitle').textContent = 'Four specialist agents are reviewing and improving your contract';
+  show('step-loading');
+  startStepAnimation(PIPELINE_STEPS_REVIEW);
+
+  try {
+    const res = await fetch('/contract/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ original_contract, name: name || undefined, user_id: 'demo' }),
+    });
+    const data = await res.json();
+    stopStepAnimation();
+
+    if (!res.ok || data.error) {
+      show('step-input');
+      setError(data.error || 'Review failed. Please try again.');
+      return;
+    }
+
+    currentContractId = data.id;
+    await loadResult(currentContractId);
+    show('step-result');
+
+  } catch (err) {
+    stopStepAnimation();
+    show('step-input');
+    setError('Network error: ' + err.message);
+  }
+}
+
 
 async function startGeneration() {
   const intent = document.getElementById('intent-input').value.trim();
@@ -651,8 +813,9 @@ async function startGeneration() {
   if (!intent) { setError('Please describe the agreement you need.'); return; }
   setError('');
 
+  document.getElementById('processing-subtitle').textContent = 'Four specialist agents are researching and drafting your agreement';
   show('step-loading');
-  startStepAnimation();
+  startStepAnimation(PIPELINE_STEPS);
 
   // Collect only parties that have at least a name and role
   const validParties = parties
@@ -710,18 +873,25 @@ async function loadResult(id) {
   if (report) {
     const score = report.enforceability_score;
     const pct   = score;
+    const color = scoreColor(score);
     document.getElementById('score-circle').style.background =
-      \`conic-gradient(\${score >= 75 ? '#c9a84c' : score >= 50 ? '#f59e0b' : '#ef4444'} \${pct}%, #e2e8f0 0%)\`;
+      \`conic-gradient(\${color} \${pct}%, #e2e8f0 0%)\`;
     document.getElementById('score-number').textContent = score;
+    document.getElementById('score-number').style.color = color;
     document.getElementById('score-label').textContent  = scoreLabel(score);
+    document.getElementById('score-star').classList.toggle('hidden', score < 95);
 
     const advice = document.getElementById('score-advice');
-    if (score >= 82) {
+    if (score >= 95) {
+      advice.innerHTML = \`<span style="color:#c9a84c">&#11088; Score \${score}/100 — outstanding. This draft is exceptional quality. You may approve with confidence.</span>\`;
+    } else if (score >= 82) {
       advice.innerHTML = \`<span style="color:#16a34a">&#10003; Score \${score}/100 — the draft is considered sound. You may approve or request further refinement.</span>\`;
     } else if (score >= 60) {
       advice.innerHTML = \`<span style="color:#b45309">&#9888; Score \${score}/100 — consider requesting a revision to address the vulnerabilities above before approving.</span>\`;
+    } else if (score >= 40) {
+      advice.innerHTML = \`<span style="color:#ea580c">&#9888; Score \${score}/100 — significant weaknesses remain. Request a revision before approving.</span>\`;
     } else {
-      advice.innerHTML = \`<span style="color:#dc2626">&#10007; Score \${score}/100 — significant weaknesses remain. Request a revision before approving.</span>\`;
+      advice.innerHTML = \`<span style="color:#dc2626">&#10007; Score \${score}/100 — do not execute. Fundamental defects require a full revision.</span>\`;
     }
 
     // Warnings
@@ -740,13 +910,41 @@ async function loadResult(id) {
     }
   }
 
+  // Contract type badge
+  const typeEl = document.getElementById('result-contract-type');
+  if (state.contract_type && state.contract_type !== 'OTHER') {
+    typeEl.textContent = state.contract_type.replace(/_/g, ' ');
+    typeEl.classList.remove('hidden');
+  } else {
+    typeEl.classList.add('hidden');
+  }
+
   // Draft
   if (draft) {
     document.getElementById('draft-content').textContent = draft.content;
   }
+
+  // Redline (review mode only)
+  const redlineWrapper = document.getElementById('redline-panel-wrapper');
+  if (state.mode === 'REVIEW' && state.original_contract && draft) {
+    redlineWrapper.classList.remove('hidden');
+    renderRedline(state.original_contract, draft.content);
+  } else {
+    redlineWrapper.classList.add('hidden');
+  }
+}
+
+function scoreColor(s) {
+  if (s >= 95) return '#16a34a'; // strong green — outstanding (gold star handles the gold)
+  if (s >= 82) return '#16a34a'; // strong green — exceptional/sound
+  if (s >= 75) return '#22c55e'; // green — good
+  if (s >= 60) return '#f59e0b'; // amber — notable gaps
+  if (s >= 40) return '#f97316'; // orange — significant weaknesses
+  return '#ef4444';              // red — do not execute
 }
 
 function scoreLabel(s) {
+  if (s >= 95) return 'Outstanding';
   if (s >= 90) return 'Exceptional';
   if (s >= 75) return 'Good';
   if (s >= 60) return 'Notable Gaps';
@@ -766,6 +964,37 @@ function toggleDraft() {
     panel.classList.add('hidden');
     chevron.innerHTML = '&#8964;';
   }
+}
+
+function toggleRedline() {
+  const panel   = document.getElementById('redline-panel');
+  const chevron = document.getElementById('redline-chevron');
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    chevron.innerHTML = '&#8963;';
+  } else {
+    panel.classList.add('hidden');
+    chevron.innerHTML = '&#8964;';
+  }
+}
+
+function renderRedline(original, improved) {
+  const container = document.getElementById('redline-content');
+  if (!container || !window.Diff) {
+    container.textContent = improved;
+    return;
+  }
+  const diff = Diff.diffWords(original, improved);
+  const html = diff.map(part => {
+    const escaped = part.value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    if (part.removed) return \`<span class="diff-del">\${escaped}</span>\`;
+    if (part.added)   return \`<span class="diff-add">\${escaped}</span>\`;
+    return escaped;
+  }).join('');
+  container.innerHTML = html;
 }
 
 // ── Decision ──────────────────────────────────────────────────────────────────
@@ -844,9 +1073,13 @@ function reset() {
   currentContractId = null;
   document.getElementById('intent-input').value = '';
   document.getElementById('name-input').value = '';
+  document.getElementById('review-contract-text').value = '';
+  document.getElementById('review-name').value = '';
   document.getElementById('adjust-panel').classList.add('hidden');
   document.getElementById('review-panel').classList.add('hidden');
   document.getElementById('draft-panel').classList.add('hidden');
+  document.getElementById('redline-panel').classList.add('hidden');
+  document.getElementById('redline-panel-wrapper').classList.add('hidden');
   document.getElementById('lawyer-notes').value = '';
   document.getElementById('review-message').value = '';
   document.getElementById('lawyer-email').value = '';
@@ -856,11 +1089,13 @@ function reset() {
   ];
   renderParties();
   setError('');
+  setMode('DRAFT');
   show('step-input');
 }
 
-// Initialise party form on load
+// Initialise party form and mode on load
 renderParties();
+setMode('DRAFT');
 </script>
 </body>
 </html>`;

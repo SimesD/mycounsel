@@ -3,6 +3,7 @@
  *
  * Endpoints:
  *   POST /contract/generate          — start a new contract workflow
+ *   POST /contract/review            — review and improve an existing contract
  *   GET  /contract/:id               — get contract state
  *   GET  /contract/:id/report        — get Legal Standing Report as Markdown
  *   POST /contract/:id/decision      — submit user decision (ADJUST | APPROVE)
@@ -11,14 +12,19 @@
  *   GET  /contracts                  — list contracts for user
  */
 
-import { Hono } from 'hono';
-import { z } from 'zod';
-import { renderUI } from './ui';
-import { generate, resume } from './pipeline';
-import { saveContract, loadContract, listUserContracts, nextContractSeq } from './db';
-import { formatRiskReport } from './report';
-import { ContractState } from './state';
-import { searchCompanies, formatAddress } from './integrations/companies-house';
+import { Hono } from "hono";
+import { z } from "zod";
+import { renderUI } from "./ui";
+import { generate, resume, review } from "./pipeline";
+import {
+  saveContract,
+  loadContract,
+  listUserContracts,
+  nextContractSeq,
+} from "./db";
+import { formatRiskReport } from "./report";
+import { ContractState } from "./state";
+import { searchCompanies, formatAddress } from "./integrations/companies-house";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -33,15 +39,25 @@ const PartyInputSchema = z.object({
 });
 
 const GenerateSchema = z.object({
-  intent: z.string().min(10, 'Please describe the agreement in at least 10 characters'),
+  intent: z
+    .string()
+    .min(10, "Please describe the agreement in at least 10 characters"),
   name: z.string().optional(),
-  user_id: z.string().optional().default('anonymous'),
+  user_id: z.string().optional().default("anonymous"),
   parties: z.array(PartyInputSchema).optional().default([]),
 });
 
 const DecisionSchema = z.object({
-  decision: z.enum(['ADJUST', 'APPROVE']),
+  decision: z.enum(["ADJUST", "APPROVE"]),
   lawyer_notes: z.string().optional(),
+});
+
+const ReviewSchema = z.object({
+  original_contract: z
+    .string()
+    .min(100, "Please paste a contract of at least 100 characters"),
+  name: z.string().optional(),
+  user_id: z.string().optional().default("anonymous"),
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -55,13 +71,13 @@ function autoName(intent: string): string {
   const trimmed = intent.trim();
   // Use up to first sentence or 60 chars, whichever is shorter
   const sentence = trimmed.split(/[.!?]/)[0].trim();
-  return sentence.length > 60 ? sentence.slice(0, 57) + '…' : sentence;
+  return sentence.length > 60 ? sentence.slice(0, 57) + "…" : sentence;
 }
 
 function jsonError(message: string, status = 400) {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -71,7 +87,7 @@ function jsonError(message: string, status = 400) {
  * GET /
  * Serves the demo UI.
  */
-app.get('/', (c) => {
+app.get("/", (c) => {
   return c.html(renderUI());
 });
 
@@ -79,8 +95,8 @@ app.get('/', (c) => {
  * GET /companies-house/search?q=...
  * Proxies Companies House company search so the browser doesn't need the API key.
  */
-app.get('/companies-house/search', async (c) => {
-  const q = c.req.query('q')?.trim() ?? '';
+app.get("/companies-house/search", async (c) => {
+  const q = c.req.query("q")?.trim() ?? "";
   if (q.length < 2) return c.json({ items: [] });
 
   const results = await searchCompanies(q, c.env.COMPANIES_HOUSE_KEY, 6);
@@ -98,23 +114,23 @@ app.get('/companies-house/search', async (c) => {
  * POST /contract/generate
  * Kicks off the full intake → research → draft → risk pipeline.
  */
-app.post('/contract/generate', async (c) => {
+app.post("/contract/generate", async (c) => {
   let body: unknown;
   try {
     body = await c.req.json();
   } catch {
-    return jsonError('Invalid JSON body');
+    return jsonError("Invalid JSON body");
   }
 
   const parsed = GenerateSchema.safeParse(body);
   if (!parsed.success) {
-    return jsonError(parsed.error.issues.map((i) => i.message).join('; '));
+    return jsonError(parsed.error.issues.map((i) => i.message).join("; "));
   }
 
   const { intent, name, user_id, parties } = parsed.data;
   const id = generateId();
   const seq = await nextContractSeq(c.env.DB);
-  const ref = `MC-${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`;
+  const ref = `MC-${new Date().getFullYear()}-${String(seq).padStart(4, "0")}`;
   const agreementName = name?.trim() || autoName(intent);
 
   const initialState: ContractState = {
@@ -122,10 +138,11 @@ app.post('/contract/generate', async (c) => {
     ref,
     name: agreementName,
     user_id,
-    status: 'INTAKE',
+    mode: "DRAFT",
+    status: "INTAKE",
     inputs: {
       intent,
-      parties: parties as ContractState['inputs']['parties'],
+      parties: parties as ContractState["inputs"]["parties"],
       commercial_terms: {},
     },
     legal_context: {
@@ -148,12 +165,74 @@ app.post('/contract/generate', async (c) => {
       name: agreementName,
       status: (finalState as ContractState).status,
       message:
-        'Contract drafted and risk assessment complete. Review the Legal Standing Report then submit your decision.',
+        "Contract drafted and risk assessment complete. Review the Legal Standing Report then submit your decision.",
       report_url: `/contract/${id}/report`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('Graph error:', message);
+    console.error("Graph error:", message);
+    return c.json({ id, error: message }, 500);
+  }
+});
+
+/**
+ * POST /contract/review
+ * Accepts a pasted contract text and runs the review pipeline:
+ * intake (classify + extract parties) → research → reviewer → risk
+ */
+app.post("/contract/review", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError("Invalid JSON body");
+  }
+
+  const parsed = ReviewSchema.safeParse(body);
+  if (!parsed.success)
+    return jsonError(parsed.error.issues.map((i) => i.message).join("; "));
+
+  const { original_contract, name, user_id } = parsed.data;
+  const id = generateId();
+  const seq = await nextContractSeq(c.env.DB);
+  const ref = `MC-${new Date().getFullYear()}-${String(seq).padStart(4, "0")}`;
+  const agreementName = name?.trim() || "Contract Review";
+
+  const initialState: ContractState = {
+    id,
+    ref,
+    name: agreementName,
+    user_id,
+    mode: "REVIEW",
+    status: "INTAKE",
+    inputs: {
+      intent: "Review and improve submitted contract",
+      parties: [],
+      commercial_terms: {},
+    },
+    legal_context: { statutes: [], precedents: [] },
+    draft_versions: [],
+    original_contract,
+  };
+
+  await saveContract(c.env.DB, initialState);
+
+  try {
+    const finalState = await review(initialState, c.env);
+    await saveContract(c.env.DB, finalState);
+
+    return c.json({
+      id,
+      ref,
+      name: agreementName,
+      status: (finalState as ContractState).status,
+      message:
+        "Contract reviewed and improved. Review the Legal Standing Report and redline below.",
+      report_url: `/contract/${id}/report`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Review pipeline error:", message);
     return c.json({ id, error: message }, 500);
   }
 });
@@ -162,9 +241,9 @@ app.post('/contract/generate', async (c) => {
  * GET /contract/:id
  * Returns the full contract state as JSON.
  */
-app.get('/contract/:id', async (c) => {
-  const state = await loadContract(c.env.DB, c.req.param('id'));
-  if (!state) return jsonError('Contract not found', 404);
+app.get("/contract/:id", async (c) => {
+  const state = await loadContract(c.env.DB, c.req.param("id"));
+  if (!state) return jsonError("Contract not found", 404);
   return c.json(state);
 });
 
@@ -172,14 +251,14 @@ app.get('/contract/:id', async (c) => {
  * GET /contract/:id/report
  * Returns the Legal Standing Report as formatted Markdown.
  */
-app.get('/contract/:id/report', async (c) => {
-  const state = await loadContract(c.env.DB, c.req.param('id'));
-  if (!state) return jsonError('Contract not found', 404);
+app.get("/contract/:id/report", async (c) => {
+  const state = await loadContract(c.env.DB, c.req.param("id"));
+  if (!state) return jsonError("Contract not found", 404);
 
   const markdown = formatRiskReport(state);
 
   return new Response(markdown, {
-    headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    headers: { "Content-Type": "text/markdown; charset=utf-8" },
   });
 });
 
@@ -189,14 +268,14 @@ app.get('/contract/:id/report', async (c) => {
  * ADJUST: re-runs drafting + risk nodes.
  * APPROVE: triggers the signing workflow.
  */
-app.post('/contract/:id/decision', async (c) => {
-  const id = c.req.param('id');
+app.post("/contract/:id/decision", async (c) => {
+  const id = c.req.param("id");
   const state = await loadContract(c.env.DB, id);
-  if (!state) return jsonError('Contract not found', 404);
+  if (!state) return jsonError("Contract not found", 404);
 
-  if (state.status !== 'LAWYER_REVIEW') {
+  if (state.status !== "LAWYER_REVIEW") {
     return jsonError(
-      `Contract is in status '${state.status}' — decisions only accepted at LAWYER_REVIEW`
+      `Contract is in status '${state.status}' — decisions only accepted at LAWYER_REVIEW`,
     );
   }
 
@@ -204,12 +283,12 @@ app.post('/contract/:id/decision', async (c) => {
   try {
     body = await c.req.json();
   } catch {
-    return jsonError('Invalid JSON body');
+    return jsonError("Invalid JSON body");
   }
 
   const parsed = DecisionSchema.safeParse(body);
   if (!parsed.success) {
-    return jsonError(parsed.error.issues.map((i) => i.message).join('; '));
+    return jsonError(parsed.error.issues.map((i) => i.message).join("; "));
   }
 
   const { decision, lawyer_notes } = parsed.data;
@@ -228,14 +307,14 @@ app.post('/contract/:id/decision', async (c) => {
       id,
       status: (finalState as ContractState).status,
       message:
-        decision === 'APPROVE'
-          ? 'Agreement sent for signature via Adobe Sign.'
-          : 'Draft revised and new risk assessment complete. Review the updated report.',
+        decision === "APPROVE"
+          ? "Agreement sent for signature via Adobe Sign."
+          : "Draft revised and new risk assessment complete. Review the updated report.",
       report_url: `/contract/${id}/report`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('Resume graph error:', message);
+    console.error("Resume graph error:", message);
     return c.json({ id, error: message }, 500);
   }
 });
@@ -246,27 +325,33 @@ app.post('/contract/:id/decision', async (c) => {
  * In production: triggers an email via Cloudflare Email Workers / Resend.
  * For demo: saves the request and returns a formatted preview.
  */
-app.post('/contract/:id/legal-review', async (c) => {
-  const id = c.req.param('id');
+app.post("/contract/:id/legal-review", async (c) => {
+  const id = c.req.param("id");
   const state = await loadContract(c.env.DB, id);
-  if (!state) return jsonError('Contract not found', 404);
+  if (!state) return jsonError("Contract not found", 404);
 
-  if (state.status !== 'LAWYER_REVIEW') {
+  if (state.status !== "LAWYER_REVIEW") {
     return jsonError(
-      `Contract is in status '${state.status}' — legal review only available after risk assessment`
+      `Contract is in status '${state.status}' — legal review only available after risk assessment`,
     );
   }
 
   let body: unknown;
-  try { body = await c.req.json(); } catch { return jsonError('Invalid JSON body'); }
+  try {
+    body = await c.req.json();
+  } catch {
+    return jsonError("Invalid JSON body");
+  }
 
-  const parsed = z.object({
-    message: z.string().min(5, 'Please include a message for the lawyers'),
-    lawyer_email: z.string().email().optional(),
-  }).safeParse(body);
+  const parsed = z
+    .object({
+      message: z.string().min(5, "Please include a message for the lawyers"),
+      lawyer_email: z.string().email().optional(),
+    })
+    .safeParse(body);
 
   if (!parsed.success) {
-    return jsonError(parsed.error.issues.map((i) => i.message).join('; '));
+    return jsonError(parsed.error.issues.map((i) => i.message).join("; "));
   }
 
   const { message, lawyer_email } = parsed.data;
@@ -275,29 +360,34 @@ app.post('/contract/:id/legal-review', async (c) => {
 
   // Persist the review request
   await c.env.DB.prepare(
-    `UPDATE contracts SET status = 'SENT_FOR_REVIEW', review_request = ?, review_sent_at = ? WHERE id = ?`
-  ).bind(message, sentAt, id).run();
+    `UPDATE contracts SET status = 'SENT_FOR_REVIEW', review_request = ?, review_sent_at = ? WHERE id = ?`,
+  )
+    .bind(message, sentAt, id)
+    .run();
 
   // Build the formatted email body the lawyer would receive
   const emailPreview = formatLegalReviewEmail({
     contractId: id,
     intent: state.inputs.intent,
-    parties: state.inputs.parties.map((p) => `${p.name} (${p.role})`).join(', '),
+    parties: state.inputs.parties
+      .map((p) => `${p.name} (${p.role})`)
+      .join(", "),
     score: state.risk_report?.enforceability_score,
     warnings: state.risk_report?.warnings ?? [],
     userMessage: message,
     draftVersion: latestDraft?.version ?? 1,
-    draftContent: latestDraft?.content ?? '',
+    draftContent: latestDraft?.content ?? "",
     sentAt,
   });
 
   return c.json({
     id,
-    status: 'SENT_FOR_REVIEW',
-    sent_to: lawyer_email ?? 'legal-team@mycounsel.ai (demo)',
+    status: "SENT_FOR_REVIEW",
+    sent_to: lawyer_email ?? "legal-team@mycounsel.ai (demo)",
     sent_at: sentAt,
     email_preview: emailPreview,
-    message: 'Draft sent for legal review. The lawyers will be in touch shortly.',
+    message:
+      "Draft sent for legal review. The lawyers will be in touch shortly.",
   });
 });
 
@@ -314,8 +404,12 @@ interface ReviewEmailParams {
 }
 
 function formatLegalReviewEmail(p: ReviewEmailParams): string {
-  const date = new Date(p.sentAt).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  const date = new Date(p.sentAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   return `TO: Legal Team <legal-team@mycounsel.ai>
@@ -342,8 +436,8 @@ MESSAGE FROM CLIENT
 "${p.userMessage}"
 
 AI RISK ASSESSMENT SUMMARY (for context only — not legal advice)
-Enforceability Score: ${p.score ?? 'N/A'}/100
-${p.warnings.map((w, i) => `${i + 1}. ${w.title} — ${w.statutory_basis}`).join('\n')}
+Enforceability Score: ${p.score ?? "N/A"}/100
+${p.warnings.map((w, i) => `${i + 1}. ${w.title} — ${w.statutory_basis}`).join("\n")}
 
 ────────────────────────────────────────────
 CONTRACT DRAFT (Version ${p.draftVersion})
@@ -364,11 +458,11 @@ MyCounsel Platform`;
  * POST /webhooks/adobe-sign
  * Receives AGREEMENT_SIGNED events from Adobe Sign.
  */
-app.post('/webhooks/adobe-sign', async (c) => {
+app.post("/webhooks/adobe-sign", async (c) => {
   // Adobe Sign verification header
-  const clientId = c.req.header('x-adobesign-clientid');
+  const clientId = c.req.header("x-adobesign-clientid");
   if (clientId !== c.env.ADOBE_SIGN_CLIENT_ID) {
-    return new Response('Forbidden', { status: 403 });
+    return new Response("Forbidden", { status: 403 });
   }
 
   const event = await c.req.json<{
@@ -376,19 +470,19 @@ app.post('/webhooks/adobe-sign', async (c) => {
     agreement: { id: string };
   }>();
 
-  if (event.event === 'AGREEMENT_SIGNED') {
+  if (event.event === "AGREEMENT_SIGNED") {
     const signatureRequestId = event.agreement.id;
 
     // Find contract by signature_request_id
     const { results } = await c.env.DB.prepare(
-      'SELECT id FROM contracts WHERE signature_request_id = ?'
+      "SELECT id FROM contracts WHERE signature_request_id = ?",
     )
       .bind(signatureRequestId)
       .all<{ id: string }>();
 
     if (results.length > 0) {
       await c.env.DB.prepare(
-        "UPDATE contracts SET status = 'SIGNING' WHERE id = ?"
+        "UPDATE contracts SET status = 'SIGNING' WHERE id = ?",
       )
         .bind(results[0].id)
         .run();
@@ -403,8 +497,8 @@ app.post('/webhooks/adobe-sign', async (c) => {
  * GET /contracts?user_id=xxx
  * Lists contracts for a given user.
  */
-app.get('/contracts', async (c) => {
-  const userId = c.req.query('user_id') ?? 'anonymous';
+app.get("/contracts", async (c) => {
+  const userId = c.req.query("user_id") ?? "anonymous";
   const contracts = await listUserContracts(c.env.DB, userId);
   return c.json({ contracts });
 });

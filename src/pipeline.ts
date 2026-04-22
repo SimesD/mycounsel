@@ -5,18 +5,20 @@
  *   generate()  → intake → research → draft → risk → persists to D1, returns
  *   resume()    → ADJUST: draft → risk → persists
  *                 APPROVE: signing → persists
+ *   review()    → intake → research → reviewer → risk → persists
  */
 
-import { ContractState } from './state';
-import { intakeNode } from './agents/intake';
-import { researchNode } from './agents/researcher';
-import { draftingNode } from './agents/drafter';
-import { riskNode } from './agents/risk';
-import { signingNode } from './agents/signing';
+import { ContractState } from "./state";
+import { intakeNode } from "./agents/intake";
+import { researchNode } from "./agents/researcher";
+import { draftingNode } from "./agents/drafter";
+import { riskNode } from "./agents/risk";
+import { signingNode } from "./agents/signing";
+import { reviewerNode } from "./agents/reviewer";
 
 type PipelineStep = (
   state: ContractState,
-  env: Env
+  env: Env,
 ) => Promise<Partial<ContractState>>;
 
 interface NamedStep {
@@ -26,17 +28,14 @@ interface NamedStep {
 
 function applyUpdate(
   state: ContractState,
-  update: Partial<ContractState>
+  update: Partial<ContractState>,
 ): ContractState {
   return {
     ...state,
     ...update,
     inputs: { ...state.inputs, ...(update.inputs ?? {}) },
     legal_context: { ...state.legal_context, ...(update.legal_context ?? {}) },
-    draft_versions: [
-      ...state.draft_versions,
-      ...(update.draft_versions ?? []),
-    ],
+    draft_versions: [...state.draft_versions, ...(update.draft_versions ?? [])],
     errors: [...(state.errors ?? []), ...(update.errors ?? [])],
   };
 }
@@ -44,7 +43,7 @@ function applyUpdate(
 async function runSteps(
   state: ContractState,
   steps: NamedStep[],
-  env: Env
+  env: Env,
 ): Promise<ContractState> {
   let current = state;
   for (const { name, fn } of steps) {
@@ -64,25 +63,53 @@ async function runSteps(
 
 export async function generate(
   state: ContractState,
-  env: Env
+  env: Env,
 ): Promise<ContractState> {
-  return runSteps(state, [
-    { name: 'intakeNode',   fn: intakeNode },
-    { name: 'researchNode', fn: researchNode },
-    { name: 'draftingNode', fn: draftingNode },
-    { name: 'riskNode',     fn: riskNode },
-  ], env);
+  return runSteps(
+    state,
+    [
+      { name: "intakeNode", fn: intakeNode },
+      { name: "researchNode", fn: researchNode },
+      { name: "draftingNode", fn: draftingNode },
+      { name: "riskNode", fn: riskNode },
+    ],
+    env,
+  );
 }
 
 export async function resume(
   state: ContractState,
-  env: Env
+  env: Env,
 ): Promise<ContractState> {
-  if (state.user_decision === 'APPROVE') {
-    return runSteps(state, [{ name: 'signingNode', fn: signingNode }], env);
+  if (state.user_decision === "APPROVE") {
+    return runSteps(state, [{ name: "signingNode", fn: signingNode }], env);
   }
-  return runSteps(state, [
-    { name: 'draftingNode', fn: draftingNode },
-    { name: 'riskNode',     fn: riskNode },
-  ], env);
+  return runSteps(
+    state,
+    [
+      { name: "draftingNode", fn: draftingNode },
+      { name: "riskNode", fn: riskNode },
+    ],
+    env,
+  );
+}
+
+/**
+ * review() — intake → research → reviewer → risk
+ * Used when the user pastes an existing contract for review and improvement.
+ */
+export async function review(
+  state: ContractState,
+  env: Env,
+): Promise<ContractState> {
+  return runSteps(
+    state,
+    [
+      { name: "intakeNode", fn: intakeNode },
+      { name: "researchNode", fn: researchNode },
+      { name: "reviewerNode", fn: reviewerNode },
+      { name: "riskNode", fn: riskNode },
+    ],
+    env,
+  );
 }

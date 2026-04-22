@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS contracts (
   review_request TEXT,
   review_sent_at TEXT,
   signature_request_id TEXT,
+  mode TEXT NOT NULL DEFAULT 'DRAFT',
+  contract_type TEXT,
+  original_contract TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
