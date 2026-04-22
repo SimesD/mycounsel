@@ -10,7 +10,7 @@ export function renderUI(): string {
   <script src="https://cdn.jsdelivr.net/npm/diff@5.2.0/dist/diff.min.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
 
     :root {
       --navy: #0f1e35;
@@ -41,9 +41,9 @@ export function renderUI(): string {
     }
 
     .draft-content {
-      font-family: 'Courier New', monospace;
-      font-size: 0.8rem;
-      line-height: 1.7;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.875rem;
+      line-height: 1.85;
       white-space: pre-wrap;
     }
 
@@ -294,7 +294,11 @@ export function renderUI(): string {
           <span id="draft-chevron" class="text-slate-400 text-xl">&#8964;</span>
         </button>
         <div id="draft-panel" class="hidden px-8 pb-8">
-          <div class="bg-slate-50 rounded-xl p-6 overflow-auto max-h-96">
+          <div class="flex items-center justify-between mb-3">
+            <span id="draft-version-badge" class="text-xs text-slate-400 font-medium"></span>
+            <button onclick="exportDraftPdf()" class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors" style="border-color:var(--navy);color:var(--navy)" onmouseover="this.style.background='var(--navy)';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='var(--navy)'">&#8595; Export PDF</button>
+          </div>
+          <div class="bg-slate-50 rounded-xl p-6 overflow-auto max-h-[32rem]">
             <pre id="draft-content" class="draft-content text-slate-700"></pre>
           </div>
         </div>
@@ -311,7 +315,10 @@ export function renderUI(): string {
             <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-0.5">Track Changes</div>
             <span class="serif font-semibold text-lg">Redline — Original vs Improved</span>
           </div>
-          <span id="redline-chevron" class="text-slate-400 text-xl">&#8964;</span>
+          <div class="flex items-center gap-3">
+            <button onclick="event.stopPropagation();exportRedlinePdf()" class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors" style="border-color:var(--navy);color:var(--navy)" onmouseover="this.style.background='var(--navy)';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='var(--navy)'">&#8595; Export PDF</button>
+            <span id="redline-chevron" class="text-slate-400 text-xl">&#8964;</span>
+          </div>
         </button>
         <div id="redline-panel" class="hidden">
           <div class="px-8 py-3 bg-slate-50 border-t border-b border-slate-100 flex gap-6 text-xs text-slate-500">
@@ -495,6 +502,7 @@ const PIPELINE_STEPS = [
 ];
 
 let currentContractId = null;
+let currentState = null;
 let stepTimer = null;
 let currentMode = 'DRAFT';
 
@@ -918,6 +926,7 @@ async function startGeneration() {
 async function loadResult(id) {
   const res  = await fetch(\`/contract/\${id}\`);
   const state = await res.json();
+  currentState = state;
   const report = state.risk_report;
   const draft  = state.draft_versions?.[state.draft_versions.length - 1];
 
@@ -980,6 +989,8 @@ async function loadResult(id) {
   // Draft
   if (draft) {
     document.getElementById('draft-content').textContent = draft.content;
+    document.getElementById('draft-version-badge').textContent =
+      'Version ' + draft.version + '  \u00b7  ' + new Date(draft.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}) + '  \u00b7  ' + draft.author;
   }
 
   // Redline (review mode only)
@@ -1011,6 +1022,93 @@ function scoreLabel(s) {
 }
 
 // ── Draft toggle ──────────────────────────────────────────────────────────────
+
+// ── PDF Export ───────────────────────────────────────────────────────────────
+
+function exportDraftPdf() {
+  if (!currentState) return;
+  var draft = currentState.draft_versions && currentState.draft_versions[currentState.draft_versions.length - 1];
+  if (!draft) return;
+  openPrintWindow({
+    title: currentState.name || 'Contract Draft',
+    ref: currentState.ref,
+    version: draft.version,
+    parties: currentState.inputs.parties.map(function(p) { return p.name + ' (' + p.role + ')'; }).join(' \u00b7 '),
+    content: draft.content,
+    isRedline: false,
+  });
+}
+
+function exportRedlinePdf() {
+  if (!currentState) return;
+  var draft = currentState.draft_versions && currentState.draft_versions[currentState.draft_versions.length - 1];
+  openPrintWindow({
+    title: (currentState.name || 'Contract') + ' \u2014 Redline',
+    ref: currentState.ref,
+    version: draft ? draft.version : 1,
+    parties: currentState.inputs.parties.map(function(p) { return p.name + ' (' + p.role + ')'; }).join(' \u00b7 '),
+    content: null,
+    isRedline: true,
+  });
+}
+
+function openPrintWindow(opts) {
+  var w = window.open('', '_blank');
+  if (!w) { alert('Please allow pop-ups to export PDF.'); return; }
+
+  var ver = 'Version ' + opts.version;
+  var dateStr = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+  var metaLine = (opts.ref ? 'Ref: ' + opts.ref + '&nbsp;&nbsp;&middot;&nbsp;&nbsp;' : '') +
+    ver + '&nbsp;&nbsp;&middot;&nbsp;&nbsp;' +
+    (opts.parties || '') +
+    (opts.isRedline ? '&nbsp;&nbsp;&middot;&nbsp;&nbsp;Track Changes' : '') +
+    '&nbsp;&nbsp;&middot;&nbsp;&nbsp;' + dateStr;
+
+  var bodyContent;
+  if (opts.isRedline) {
+    var el = document.getElementById('redline-content');
+    bodyContent = el ? el.innerHTML : '';
+  } else {
+    bodyContent = (opts.content || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  var footerLeft = 'MyCounsel  \u00b7  ' + ver;
+  var footerRight = opts.isRedline ? 'Track Changes' : 'Confidential Draft';
+
+  var parts = [
+    '<!DOCTYPE html><html><head>',
+    '<meta charset="UTF-8">',
+    '<title>' + opts.title + '</title>',
+    '<style>',
+    '@import url(\'https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500&display=swap\');',
+    'body{font-family:\'EB Garamond\',Georgia,serif;font-size:11pt;line-height:1.8;color:#1a1a1a;background:#fff;margin:0;padding:0;}',
+    '.page{max-width:170mm;margin:0 auto;padding:15mm 0 10mm;}',
+    '.doc-title{font-size:15pt;font-weight:600;color:#0f1e35;padding-bottom:8pt;border-bottom:2px solid #0f1e35;margin-bottom:6pt;}',
+    '.doc-meta{font-size:8.5pt;color:#64748b;font-family:\'Inter\',sans-serif;margin-bottom:22pt;}',
+    '.content{white-space:pre-wrap;}',
+    '.diff-del{background:#fee2e2;color:#991b1b;text-decoration:line-through;border-radius:2px;padding:0 2px;}',
+    '.diff-add{background:#dcfce7;color:#166534;border-radius:2px;padding:0 2px;}',
+    '@page{size:A4;margin:20mm 20mm 28mm 20mm;}',
+    '@page{@bottom-left{content:"' + footerLeft + '";font-size:7pt;color:#94a3b8;font-family:\'Inter\',sans-serif;}}',
+    '@page{@bottom-center{content:"Page " counter(page);font-size:7pt;color:#94a3b8;font-family:\'Inter\',sans-serif;}}',
+    '@page{@bottom-right{content:"' + footerRight + '";font-size:7pt;color:#94a3b8;font-family:\'Inter\',sans-serif;}}',
+    '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}',
+    '</style></head><body>',
+    '<div class="page">',
+    '<div class="doc-title">' + opts.title + '</div>',
+    '<div class="doc-meta">' + metaLine + '</div>',
+    '<div class="content">' + bodyContent + '</div>',
+    '</div>',
+    '<script>window.onload=function(){window.print();};<\/script>',
+    '</body></html>'
+  ];
+
+  w.document.write(parts.join(''));
+  w.document.close();
+}
 
 function toggleDraft() {
   const panel   = document.getElementById('draft-panel');
@@ -1218,6 +1316,7 @@ async function approve() {
 
 function reset() {
   currentContractId = null;
+  currentState = null;
   document.getElementById('intent-input').value = '';
   document.getElementById('name-input').value = '';
   document.getElementById('review-contract-text').value = '';
