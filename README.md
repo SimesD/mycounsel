@@ -21,20 +21,21 @@
 
 ## Overview for Legal Professionals
 
-Commercial legal work is time-intensive by nature. Drafting a first contract, reviewing a counterparty's position, identifying statutory risks, and preparing a document for execution involves layers of research and skilled drafting that is difficult to accelerate without compromising quality.
+MyCounsel is a specialized AI-orchestration platform engineered for UK commercial legal practice. It automates the high-friction preparatory phases of contract lifecycle management—statutory research, initial drafting, and adversarial risk assessment—enabling solicitors to focus on strategic judgment and higher-value client advisory.
 
-MyCounsel is an AI-assisted platform designed to sit alongside a qualified legal team, not to replace it. It automates the preparatory stages of contract work — research, first drafting, and risk assessment — so that a solicitor's time is directed towards review, judgement, and client advice rather than the mechanics of producing and checking a first draft.
-
-The platform operates under English and Welsh law only. It is grounded in live statutory data from **legislation.gov.uk** and live company data from **Companies House**, not solely in a language model's training knowledge.
+Unlike general-purpose language models, MyCounsel is architected on a **Verified Grounding** principle. Every draft and report is cross-referenced in real-time against authoritative UK legal sources:
+- **legislation.gov.uk**: Live statutory data for confirmed UK Acts and SIs.
+- **Companies House**: Real-time corporate entity resolution and registered office verification.
+- **The National Archives (TNA) & BAILII**: Live verification of modern and historical case law citations.
 
 ### How It Works
 
-The platform operates as a sequential pipeline of five specialist AI agents, each modelled on a role in a conventional law firm:
+The platform operates as a sequential pipeline of five specialist AI agents, each modelled on a specific role within a conventional City of London law firm:
 
 | Agent | What it does | Law firm equivalent |
 |---|---|---|
 | **Intake & Classification** | Reads the instruction or submitted contract; identifies the contract type from 16 categories; extracts parties and commercial terms; resolves UK company names to registered details via Companies House | Trainee or paralegal taking initial instructions |
-| **Legal Researcher** | Queries legislation.gov.uk for confirmed statute references applicable to the contract type; enriches with case law, regulatory guidance, and an anchor case summary | Junior associate producing a research memo |
+| **Legal Researcher** | Queries legislation.gov.uk for confirmed statute references; fetches modern (2003+) case law from The National Archives (TNA) and historical context from BAILII | Junior associate producing a research memo |
 | **Drafting Architect** | Drafts a complete, clause-by-clause contract in UK English with all mandatory boilerplate, correctly numbered and ready for execution | Mid-level associate drafting from precedent |
 | **Contract Reviewer** | In Review mode: analyses a submitted contract against current English law; identifies missing clauses, void or ambiguous provisions, and non-English law drafting; produces a corrected version | Senior associate conducting a mark-up |
 | **Risk & Standing Agent** | Adversarial peer review of the draft or improved contract; scores enforceability 0–100; identifies up to three material vulnerabilities with statutory basis; produces a recommendation | Senior partner sign-off review |
@@ -47,16 +48,13 @@ The output of every run is a **Legal Standing Report** — a structured risk ass
 
 ### Draft Mode
 
-Produce a complete first draft of a UK commercial contract from a plain-English description of the transaction. The platform:
+Produce a comprehensive first draft of a UK commercial contract from a natural-language description. The platform:
 
-- Classifies the agreement type automatically from 16 supported categories
-- Resolves named UK companies to their registered office address and company number via Companies House, embedding them in the contract
-- Fetches confirmed statute references from legislation.gov.uk tailored to the contract type
-- Enriches with applicable case law, a leading anchor case summary, and regulatory notes
-- Drafts a full contract in UK English with clause hierarchy (1., 1.1, 1.1.1)
-- Includes all mandatory standard boilerplate: governing law and jurisdiction (England & Wales), limitation of liability, severability, entire agreement, notices, force majeure, and waiver
-- Appends execution pages with signature blocks for each party
-- Produces a Legal Standing Report with an enforceability score and identified vulnerabilities
+- **Automated Entity Resolution**: Verifies UK companies via Companies House, automatically embedding registered office addresses and company numbers into the contract text.
+- **Dual-Source Case Verification**: Performs live HTTP verification of all AI-generated citations. Routes modern neutral citations (`[YEAR] UKSC/EWCA/EWHC`) to **The National Archives (TNA)** and historical cases to **BAILII**.
+- **Statutory Grounding**: Fetches confirmed references from **legislation.gov.uk** tailored to the specific contract type (e.g., VABEO 2022, UCTA 1977).
+- **Adversarial Risk Review**: Generates a **Legal Standing Report** with an enforceability score (0–100) and identifies potential vulnerabilities under English law.
+- **Professional Typography**: Drafts in UK English with standard clause hierarchy and classical legal typesetting (EB Garamond).
 
 ### Review Mode
 
@@ -172,10 +170,11 @@ When a revision is requested, the Risk Agent compares the new draft against the 
 
 Clicking **↓ Export PDF** in the *View Contract Draft* panel opens a formatted A4 print window:
 
-- Typeset in **EB Garamond** — a classical legal document typeface
-- Header shows: contract name, reference number, version, parties, and date
-- Footer (on every page via CSS `@page`): MyCounsel reference and version · Page N · Confidential Draft
-- Auto-triggers the browser print dialog for Save as PDF
+- **Verified Citations**: Includes the live-verified status and source badge (TNA/BAILII) for every cited case.
+- **Professional Typography**: Typeset in **EB Garamond** — a classical legal document typeface.
+- **Complete Metadata**: Header shows contract name, reference number, version, parties, and date.
+- **A4 Layout**: Footer (via CSS `@page`) includes MyCounsel reference, version, and page numbers.
+- **Print-Ready**: Auto-triggers the browser print dialog for Save as PDF.
 
 ### Redline PDF
 
@@ -238,7 +237,7 @@ The following are current limitations of the demo. They represent production bui
 | Database | Cloudflare D1 (SQLite) |
 | Storage | Cloudflare R2 (declared; reserved for PDF storage) |
 | AI | Google Gemini (via `@google/genai`) |
-| External APIs | legislation.gov.uk search API, Companies House REST API |
+| External APIs | legislation.gov.uk search, Companies House REST, TNA Find Case Law (Atom/XML) |
 | E-signing | Adobe Sign / Acrobat Sign REST API v6 (placeholder) |
 | PDF parsing (client) | PDF.js 3.11 (lazy-loaded) |
 | DOCX parsing (client) | mammoth.js 1.8 (lazy-loaded) |

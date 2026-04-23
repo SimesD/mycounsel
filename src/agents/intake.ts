@@ -13,82 +13,82 @@ import { ContractState, ContractType, Party } from "../state";
 import { searchCompany, formatAddress } from "../integrations/companies-house";
 
 interface IntakeResult {
-  intent: string;
-  parties: Party[];
-  commercial_terms_json: string;
-  jurisdiction_ok: boolean;
-  jurisdiction_warning?: string;
-  contract_type: ContractType;
+    intent: string;
+    parties: Party[];
+    commercial_terms_json: string;
+    jurisdiction_ok: boolean;
+    jurisdiction_warning?: string;
+    contract_type: ContractType;
 }
 
 // commercial_terms is returned as a JSON string — Gemini's schema mode
 // does not support free-form OBJECT types (no properties defined).
 const INTAKE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    intent: { type: Type.STRING },
-    parties: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          role: { type: Type.STRING },
-          address: { type: Type.STRING },
+    type: Type.OBJECT,
+    properties: {
+        intent: { type: Type.STRING },
+        parties: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING },
+                    role: { type: Type.STRING },
+                    address: { type: Type.STRING },
+                },
+                required: ["name", "role", "address"],
+            },
         },
-        required: ["name", "role", "address"],
-      },
+        commercial_terms_json: {
+            type: Type.STRING,
+            description:
+                "JSON string of extracted commercial terms (prices, margins, durations, territory, exclusivity, etc.)",
+        },
+        jurisdiction_ok: { type: Type.BOOLEAN },
+        jurisdiction_warning: { type: Type.STRING },
+        contract_type: {
+            type: Type.STRING,
+            description:
+                "The specific type of UK commercial contract being drafted or reviewed. Choose the most specific match.",
+            enum: [
+                "DISTRIBUTION_AGREEMENT",
+                "SUPPLY_AGREEMENT",
+                "EMPLOYMENT_CONTRACT",
+                "SAAS_AGREEMENT",
+                "SOFTWARE_LICENCE",
+                "COMMERCIAL_LEASE",
+                "IP_LICENCE",
+                "SERVICES_AGREEMENT",
+                "NDA",
+                "SHARE_PURCHASE_AGREEMENT",
+                "LOAN_AGREEMENT",
+                "FRANCHISE_AGREEMENT",
+                "JV_AGREEMENT",
+                "CONSTRUCTION_CONTRACT",
+                "AGENCY_AGREEMENT",
+                "CONSULTANCY_AGREEMENT",
+                "OTHER",
+            ],
+        },
     },
-    commercial_terms_json: {
-      type: Type.STRING,
-      description:
-        "JSON string of extracted commercial terms (prices, margins, durations, territory, exclusivity, etc.)",
-    },
-    jurisdiction_ok: { type: Type.BOOLEAN },
-    jurisdiction_warning: { type: Type.STRING },
-    contract_type: {
-      type: Type.STRING,
-      description:
-        "The specific type of UK commercial contract being drafted or reviewed. Choose the most specific match.",
-      enum: [
-        "DISTRIBUTION_AGREEMENT",
-        "SUPPLY_AGREEMENT",
-        "EMPLOYMENT_CONTRACT",
-        "SAAS_AGREEMENT",
-        "SOFTWARE_LICENCE",
-        "COMMERCIAL_LEASE",
-        "IP_LICENCE",
-        "SERVICES_AGREEMENT",
-        "NDA",
-        "SHARE_PURCHASE_AGREEMENT",
-        "LOAN_AGREEMENT",
-        "FRANCHISE_AGREEMENT",
-        "JV_AGREEMENT",
-        "CONSTRUCTION_CONTRACT",
-        "AGENCY_AGREEMENT",
-        "CONSULTANCY_AGREEMENT",
-        "OTHER",
-      ],
-    },
-  },
-  required: [
-    "intent",
-    "parties",
-    "commercial_terms_json",
-    "jurisdiction_ok",
-    "contract_type",
-  ],
+    required: [
+        "intent",
+        "parties",
+        "commercial_terms_json",
+        "jurisdiction_ok",
+        "contract_type",
+    ],
 };
 
 export async function intakeNode(
-  state: ContractState,
-  env: Env,
+    state: ContractState,
+    env: Env,
 ): Promise<Partial<ContractState>> {
-  const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: env.GOOGLE_AI_API_KEY });
 
-  const isReview = state.mode === "REVIEW";
+    const isReview = state.mode === "REVIEW";
 
-  const baseInstructions = `You are a UK legal intake specialist working for MyCounsel, a UK-regulated legal tech platform.
+    const baseInstructions = `You are a UK legal intake specialist working for MyCounsel, a UK-regulated legal tech platform.
 Your role is to:
 1. Parse the instruction into structured data
 2. Identify all parties (people, companies, organisations)
@@ -99,10 +99,10 @@ Your role is to:
 
 Always use UK legal terminology. Return structured JSON only.`;
 
-  let prompt: string;
+    let prompt: string;
 
-  if (isReview && state.original_contract) {
-    prompt = `${baseInstructions}
+    if (isReview && state.original_contract) {
+        prompt = `${baseInstructions}
 
 MODE: REVIEW — the user has submitted an existing contract for review and improvement.
 
@@ -117,8 +117,8 @@ CONTRACT TEXT:
 ---
 ${state.original_contract}
 ---`;
-  } else {
-    prompt = `${baseInstructions}
+    } else {
+        prompt = `${baseInstructions}
 
 MODE: DRAFT — the user wants to draft a new contract from scratch.
 
@@ -135,69 +135,69 @@ Identify:
 - The most specific contract_type that matches the user's intent
 
 For the "Tofka Vodka" scenario or any distribution agreement, note the commercial terms including margin percentages.`;
-  }
+    }
 
-  const response = await withRetry(() =>
-    ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: INTAKE_SCHEMA,
-      },
-    }),
-  );
+    const response = await withRetry(() =>
+        ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: INTAKE_SCHEMA,
+            },
+        }),
+    );
 
-  const parsed = JSON.parse(response.text ?? "{}") as IntakeResult;
+    const parsed = JSON.parse(response.text ?? "{}") as IntakeResult;
 
-  let commercial_terms: Record<string, unknown> = {};
-  try {
-    commercial_terms = JSON.parse(parsed.commercial_terms_json ?? "{}");
-  } catch {
-    commercial_terms = { raw: parsed.commercial_terms_json };
-  }
+    let commercial_terms: Record<string, unknown> = {};
+    try {
+        commercial_terms = JSON.parse(parsed.commercial_terms_json ?? "{}");
+    } catch {
+        commercial_terms = { raw: parsed.commercial_terms_json };
+    }
 
-  // If parties were pre-filled by the user in the intake form, use them
-  // and only enrich those that don't already have a CH company number.
-  // In REVIEW mode, always use the AI-extracted parties from the contract text.
-  const sourceParties: Party[] =
-    !isReview && state.inputs.parties.length > 0
-      ? state.inputs.parties
-      : (parsed.parties ?? []);
+    // If parties were pre-filled by the user in the intake form, use them
+    // and only enrich those that don't already have a CH company number.
+    // In REVIEW mode, always use the AI-extracted parties from the contract text.
+    const sourceParties: Party[] =
+        !isReview && state.inputs.parties.length > 0
+            ? state.inputs.parties
+            : (parsed.parties ?? []);
 
-  const enrichedParties: Party[] = await Promise.all(
-    sourceParties.map(async (party) => {
-      if (party.co_number) return party; // already resolved
-      if (!party.address || party.address.length < 10) {
-        const chResult = await searchCompany(
-          party.name,
-          env.COMPANIES_HOUSE_KEY,
-        );
-        if (chResult) {
-          return {
-            ...party,
-            co_number: chResult.company_number,
-            address: formatAddress(chResult),
-          };
-        }
-      }
-      return party;
-    }),
-  );
+    const enrichedParties: Party[] = await Promise.all(
+        sourceParties.map(async (party) => {
+            if (party.co_number) return party; // already resolved
+            if (!party.address || party.address.length < 10) {
+                const chResult = await searchCompany(
+                    party.name,
+                    env.COMPANIES_HOUSE_KEY,
+                );
+                if (chResult) {
+                    return {
+                        ...party,
+                        co_number: chResult.company_number,
+                        address: formatAddress(chResult),
+                    };
+                }
+            }
+            return party;
+        }),
+    );
 
-  const errors: string[] = [];
-  if (!parsed.jurisdiction_ok && parsed.jurisdiction_warning) {
-    errors.push(`Jurisdiction warning: ${parsed.jurisdiction_warning}`);
-  }
+    const errors: string[] = [];
+    if (!parsed.jurisdiction_ok && parsed.jurisdiction_warning) {
+        errors.push(`Jurisdiction warning: ${parsed.jurisdiction_warning}`);
+    }
 
-  return {
-    status: "RESEARCH",
-    contract_type: parsed.contract_type as ContractType,
-    inputs: {
-      intent: parsed.intent,
-      parties: enrichedParties,
-      commercial_terms,
-    },
-    errors: errors.length > 0 ? errors : undefined,
-  };
+    return {
+        status: "RESEARCH",
+        contract_type: parsed.contract_type as ContractType,
+        inputs: {
+            intent: parsed.intent,
+            parties: enrichedParties,
+            commercial_terms,
+        },
+        errors: errors.length > 0 ? errors : undefined,
+    };
 }

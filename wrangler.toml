@@ -3,14 +3,31 @@ main = "src/index.ts"
 compatibility_date = "2024-10-22"
 compatibility_flags = ["nodejs_compat"]
 
+[assets]
+directory = "./public"
+
+
+
+
 [[d1_databases]]
 binding = "DB"
 database_name = "mycounsel-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "0a1be012-d8e6-4312-a9d5-d63e04f320e4"
 
 [[r2_buckets]]
 binding = "CONTRACTS_BUCKET"
 bucket_name = "mycounsel-contracts"
+
+[[queues.producers]]
+binding = "PIPELINE_QUEUE"
+queue = "mycounsel-pipeline"
+
+[[queues.consumers]]
+queue = "mycounsel-pipeline"
+max_batch_size = 1
+max_batch_timeout = 0
+max_retries = 2
+max_concurrency = 5
 
 [vars]
 ENVIRONMENT = "development"
